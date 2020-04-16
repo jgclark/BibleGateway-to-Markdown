@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v0.8, 16.4.2020
+# (c) Jonathan Clark, v0.9.1, 17.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -21,8 +21,9 @@
 # The output also gets copied to the clipboard
 #----------------------------------------------------------------------------------
 # TODO:
-# * [ ] Fix main heading
-# * [ ] Allow version option's input string
+# * [ ] Fix chapternum spacing
+# * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
+# * [x] Allow version option's input string
 # * [x] Copy output to clipboard
 # * [x] Fix versenums in Jude
 # * [x] Use original numbering for footnotes
@@ -47,23 +48,13 @@
 # - <div class="publisher-info-bottom with-single">...<a href="...">New English Translation</a> (NET)</strong> <p>NET Bible® copyright ©1996-2017 by Biblical Studies Press, L.L.C. http://netbible.com All rights reserved.</p></div></div>
 #----------------------------------------------------------------------------------
 
-require 'uri' # for dealing with URIs
-require 'net/http' # for fetching page content
+# require 'uri' # for dealing with URIs
+require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
 require 'optparse' # more details at https://docs.ruby-lang.org/en/2.1.0/OptionParser.html 'gem install OptionParser'
 require 'colorize' # 'gem install colorize'
 require 'clipboard' # for writing to clipboard
 
-# test = '<h1 class="passage-display"> <span class="passage-display-bcv">Jude</span> <span class="passage-display-version">New International Version - UK (NIVUK)</span></h1> <p><span id="en-NIVUK-30674" class="text Jude-1-1"><sup class="versenum">1 </sup>Jude, a servant of Jesus Christ and a brother of James,</span></p><p class="top-05"><span class="text Jude-1-1">To those who have been called, who are loved in God the Father and kept for<sup data-fn="#fen-NIVUK-30674a" class="footnote" data-link="[&lt;a href=&quot;#fen-NIVUK-30674a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]">[<a href="#fen-NIVUK-30674a" title="See footnote a">a</a>]</sup> Jesus Christ:</span></p> <p class="top-05"><span id="en-NIVUK-30675" class="text Jude-1-2"><sup class="versenum">2 </sup>Mercy, peace and love be yours in abundance.</span></p> <h3><span id="en-NIVUK-30676" class="text Jude-1-3">The sin and doom of ungodly people</span></h3><p><span class="text Jude-1-3"><sup class="versenum">3 </sup>Dear friends, although I was very eager to write to you about the salvation we share, I felt compelled to write and urge you to contend for the faith that was once for all entrusted to God’s holy people. </span> <span id="en-NIVUK-30677" class="text Jude-1-4"><sup class="versenum">4 </sup>For certain individuals whose condemnation was written about<sup data-fn="#fen-NIVUK-30677b" class="footnote" data-link="[&lt;a href=&quot;#fen-NIVUK-30677b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]">[<a href="#fen-NIVUK-30677b" title="See footnote b">b</a>]</sup> long ago have secretly slipped in among you. They are ungodly people, who perv'
-# puts "Found <h1>\n" if test =~ %r{<h1.*?<\/h1>\s*}
-# test.gsub!(%r{<h1.*?<\/h1>\s*}, '') # @@@
-# puts
-# puts test
-# puts
-
 # Setting variables to tweak
-TEST_FILE = 'JudeNIVUK.html'.freeze
-# TEST_FILE = 'Ps1NIVUK.html'.freeze
-BG_LOOKUP_URL = 'https://www.biblegateway.com/passage/?interface=print&version=%s&search=%s'.freeze
 DEFAULT_VERSION = 'NET'.freeze
 
 # Regular expressions used to detect various parts of the HTML to keep and use
@@ -74,7 +65,7 @@ MATCH_REF_RE = '<span class="passage-display-bcv">(.*?)<\/span>'.freeze
 VERSION_RE = '<span class="passage-display-version">.*?<\/span>'.freeze
 MATCH_VERSION_RE = '<span class="passage-display-version">(.*?)<\/span>'.freeze
 PASSAGE_RE = '<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">)'.freeze
-MATCH_PASSAGE_RE = '<h1 class="passage-display">(.*)(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">)'.freeze
+MATCH_PASSAGE_RE = '(<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">))'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_FOOTNOTE_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
@@ -113,41 +104,73 @@ opt_parser = OptionParser.new do |o|
   o.on('-n', '--numbering', 'Exclude verse and chapter numbers') do
     opts[:numbering] = false
   end
+  opts[:filename] = ''
+  o.on('-t', '--test FILENAME', "Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.") do | f |
+    opts[:filename] = f
+  end
   opts[:version] = DEFAULT_VERSION
-  o.on('-v', '--version', 'Select version to lookup (default:' + DEFAULT_VERSION + ')') do
-    opts[:version] = true
+  o.on('-v', '--version VERSION', 'Select Bible version to lookup (default:' + DEFAULT_VERSION + ')') do | v |
+    opts[:version] = v
   end
 end
 opt_parser.parse! # parse out options, leaving file patterns to process
 
-# Get reference given on command line
-begin
-  ref = ARGV.join
-rescue StandardError
-  puts 'Error: no reference passed. Stopping.'
+# Get reference(s) given on command lin
+ref = ARGV[0]  # or ARGV.join(';') to return multiple passages
+if ref.nil?  # or ref.empty?
+  puts 'Error: no reference(s) included. Stopping.'
+  exit
 end
 
 # Form URL string to do passage lookup
-uri = printf(BG_LOOKUP_URL, opts[:version], ref)
-# by default & isn't escaped, so change that
-# NB this library is deprecated, but can't get newer alternatives (e.g. CGI and WEBrick) to work
-# uriEncoded = URI.escape(uri, ' &')
-uriEncoded = 'https://www.biblegateway.com/passage/?interface=print&version=NET&search=jn+3.1-3'
+uri = URI "https://www.biblegateway.com/passage/"
+params = { interface: 'print', version: opts[:version], search: ref }
+uri.query = URI.encode_www_form params
 
 # Read the full page contents, but only save the very small interesting part
 begin
-  # TESTING: read from local file if TEST_FILE set
-  if TEST_FILE.nil?
-    puts "Calling URL <#{uriEncoded}> ...".colorize(:yellow) if opts[:verbose]
-    exit
-    input_lines = Net::HTTP.get(URI.parse(uriEncoded))
-    # @@@
+  if opts[:filename].empty?
+    # NOT TESTING: Call BG and check response is OK
+    puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
+    response = Net::HTTP.get_response(uri)
+    case response
+    when Net::HTTPSuccess then
+      f = response.body.split(/\R/)
+      n = 0
+      input_lines = []
+      indent_spaces = ''
+      in_interesting = false
+      f.each do |line|
+        # see if we've moved into the interesting part
+        if line =~ /#{START_READ_CONTENT_RE}/
+          in_interesting = true
+          # create 'indent_spaces' with the number of whitespace characters the first line is indented by
+          line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
+        end
+        # see if we've moved out of the interesting part
+        in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
+        next unless in_interesting
+
+        # save this line, having chopped off the 'indent' amount of leading whitespace,
+        # and checked it isn't empty
+        updated_line = line.delete_prefix(indent_spaces).chomp
+        next if updated_line.empty?
+
+        input_lines[n] = updated_line
+        n += 1
+      end
+      input_line_count = n
+    else
+      puts "--> Error: #{response.message} (#{response.code})".colorize(:red)
+      exit
+    end
   else
-    f = File.open(TEST_FILE, 'r', encoding: 'utf-8')
-    input_lines = []
+    # TESTING: read from local HTML file instead
     n = 0
+    input_lines = []
     indent_spaces = ''
     in_interesting = false
+    f = File.open(opts[:filename], 'r', encoding: 'utf-8')
     f.each_line do |line|
       # see if we've moved into the interesting part
       if line =~ /#{START_READ_CONTENT_RE}/
@@ -169,10 +192,7 @@ begin
     end
     input_line_count = n
   end
-rescue StandardError => e
-  puts "  Error '#{e.exception.message}' trying to call #{uriEncoded}"
 end
-
 puts "Found #{input_line_count} interesting lines" if opts[:verbose]
 
 # Join adjacent lines together except where it starts with a <h1 ..>, <ol>, <li ..>
@@ -204,7 +224,7 @@ number_footnotes = 0 # NB: counting from 0
 n = 0 # NB: counting from 1
 while n < working_line_count
   line = working_lines[n]
-  puts line.colorize(AltColour) if opts[:verbose]
+  puts line.colorize(:green) if opts[:verbose]
   # Extract full reference
   line.scan(/#{MATCH_REF_RE}/) { |m| full_ref = m.join } if line =~ /#{REF_RE}/
   # Extract version title
@@ -226,17 +246,18 @@ puts if opts[:verbose]
 
 # Only continue if we have found the passage
 puts 'Error: cannot parse passage text, so stopping.'.colorize(:red) if passage.empty?
-# Now pro cess the main passage text
+# Now process the main passage text
 # ignore <h1> as it doesn't always appear (e.g. Jude)
-passage.gsub!(%r{<h1.*?<\/h1>\s*}, '') # @@@
+passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 # ignore all <h2>book headings</h2>
-passage.gsub!(%r{<h2>.*?<\/h2>}, '')
+passage.gsub!(%r{<h2>.*?</h2>}, '')
 # replace &nbsp; elements with simpler spaces
 passage.gsub!(/&nbsp;/, ' ')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
-  passage.gsub!(%r{<sup class="versenum">(.*?)</sup>}, '\1')
-  passage.gsub!(%r{<span class="chapternum">(.*?)</span>}, '\1:1')
+  passage.gsub!(%r{<sup class="versenum">(.*?)\s*</sup>}, '\1 ')
+  # verse number '1' omitted if start of a new chapter, and the chapter number is given
+  passage.gsub!(%r{<span class="chapternum">(\d+)\s*</span>}, '\1:1 ') # @@@
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
@@ -246,6 +267,10 @@ passage.gsub!(/<p.*?>/, "\n") # needs double quotes otherwise it doesn't turn th
 passage.gsub!(%r{</p>}, '')
 passage.gsub!(/<h3.*?>\s*/, "\n\n## ")
 passage.gsub!(%r{</h3>}, '')
+passage.gsub!(/<b>/, '**')
+passage.gsub!(%r{</b>}, '**')
+passage.gsub!(%r{<i>}, '_')
+passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
 if opts[:footnotes]
@@ -270,8 +295,8 @@ if number_footnotes.positive?
   i = 0
   footnotes.each do |ff|
     # Change all <b>...</b> to *...* and <i>...</i> to _..._
-    ff.gsub!(/<b>/, '*')
-    ff.gsub!(%r{</b>}, '*')
+    ff.gsub!(/<b>/, '**')
+    ff.gsub!(%r{</b>}, '**')
     ff.gsub!(/<i>/, '_')
     ff.gsub!(%r{</i>}, '_')
     # replace all <a class="bibleref" ...>ref</a> with [ref]
