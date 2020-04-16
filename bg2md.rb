@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v0.9.1, 17.4.2020
+# (c) Jonathan Clark, v1.0.0, 17.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -18,16 +18,10 @@
 # - verse (and chapter) numbers
 # - footnotes
 # - copyright info
-# The output also gets copied to the clipboard
+# The output also gets copied to the clipboard.
 #----------------------------------------------------------------------------------
 # TODO:
-# * [ ] Fix chapternum spacing
 # * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
-# * [x] Allow version option's input string
-# * [x] Copy output to clipboard
-# * [x] Fix versenums in Jude
-# * [x] Use original numbering for footnotes
-# * [x] Cope with chapter numbering
 #----------------------------------------------------------------------------------
 # Ruby Strong manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
 #----------------------------------------------------------------------------------
@@ -256,8 +250,8 @@ passage.gsub!(/&nbsp;/, ' ')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   passage.gsub!(%r{<sup class="versenum">(.*?)\s*</sup>}, '\1 ')
-  # verse number '1' omitted if start of a new chapter, and the chapter number is given
-  passage.gsub!(%r{<span class="chapternum">(\d+)\s*</span>}, '\1:1 ') # @@@
+  # verse number '1' omitted if start of a new chapter, and the chapter number is given. (There's an error in the regex, thought I can't see what it is.)
+  passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
