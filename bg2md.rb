@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v0.1, 13.4.2020
+# (c) Jonathan Clark, v0.8, 16.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -12,28 +12,33 @@
 # The Markdown output includes:
 # - passage reference
 # - version abbreviation
+# - sub-headings
 # - passage text
-# - copyright info
 # Optionally also:
 # - verse (and chapter) numbers
 # - footnotes
-# - sub-headings
+# - copyright info
+# The output also gets copied to the clipboard
 #----------------------------------------------------------------------------------
 # TODO:
 # * [ ] Fix main heading
 # * [ ] Allow version option's input string
+# * [x] Copy output to clipboard
 # * [x] Fix versenums in Jude
 # * [x] Use original numbering for footnotes
 # * [x] Cope with chapter numbering
 #----------------------------------------------------------------------------------
-# Page structure:
+# Ruby Strong manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
+#----------------------------------------------------------------------------------
+# Key parts of HTML Page structure currently returned by BibleGateway:
 # - lots of header guff until <body ...
 # - then lots of menu, login, version and search options
 # - then more options
 # - finally nearly 1500 lines in ...
-# - <h1 class="passage-display"> <span class="passage-display-bcv">John 3:1-3</span>  ...
-#     <span class="passage-display-version">New English Translation (NET Bible)</span></h1> ...
-#     <h3><span id="en-NET-26112" class="text John-3-1">Conversation with Nicodemus</span></h3> ...
+# - <h1 class="passage-display">  (normally, but not in Jude)
+# - <span class="passage-display-bcv">John 3:1-3</span>  ...
+# - <span class="passage-display-version">New English Translation (NET Bible)</span></h1>
+# - <h3><span id="en-NET-26112" class="text John-3-1">Conversation with Nicodemus</span></h3> ...
 #     <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
 #     <sup data-fn='...' class='footnote' ... >
 #     Pharisee<sup data-fn='#fen-NET-26112a' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]'>[<a href="#fen-NET-26112a" title="See footnote a">a</a>]</sup> named Nicodemus, who was a member of the Jewish ruling council,<sup data-fn='#fen-NET-26112b' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]'>[<a href="#fen-NET-26112b" title="See footnote b">b</a>]</sup> </span> <span id="en-NET-26113" class="text John-3-2"><sup class="versenum">2 </sup>came to Jesus<sup data-fn='#fen-NET-26113c' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113c&quot; title=&quot;See footnote c&quot;&gt;c&lt;/a&gt;]'>[<a href="#fen-NET-26113c" title="See footnote c">c</a>]</sup> at night<sup data-fn='#fen-NET-26113d' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113d&quot; title=&quot;See footnote d&quot;&gt;d&lt;/a&gt;]'>[<a href="#fen-NET-26113d" title="See footnote d">d</a>]</sup> and said to him, “Rabbi, we know that you are a teacher who has come from God. For no one could perform the miraculous signs<sup data-fn='#fen-NET-26113e' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113e&quot; title=&quot;See footnote e&quot;&gt;e&lt;/a&gt;]'>[<a href="#fen-NET-26113e" title="See footnote e">e</a>]</sup> that you do unless God is with him.” </span> <span id="en-NET-26114" class="text John-3-3"><sup class="versenum">3 </sup>Jesus replied,<sup data-fn='#fen-NET-26114f' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114f&quot; title=&quot;See footnote f&quot;&gt;f&lt;/a&gt;]'>[<a href="#fen-NET-26114f" title="See footnote f">f</a>]</sup> “I tell you the solemn truth,<sup data-fn='#fen-NET-26114g' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114g&quot; title=&quot;See footnote g&quot;&gt;g&lt;/a&gt;]'>[<a href="#fen-NET-26114g" title="See footnote g">g</a>]</sup> unless a person is born from above,<sup data-fn='#fen-NET-26114h' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114h&quot; title=&quot;See footnote h&quot;&gt;h&lt;/a&gt;]'>[<a href="#fen-NET-26114h" title="See footnote h">h</a>]</sup> he cannot see the kingdom of God.”<sup data-fn='#fen-NET-26114i' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114i&quot; title=&quot;See footnote i&quot;&gt;i&lt;/a&gt;]'>[<a href="#fen-NET-26114i" title="See footnote i">i</a>]</sup> </span> </p>
@@ -46,8 +51,14 @@ require 'uri' # for dealing with URIs
 require 'net/http' # for fetching page content
 require 'optparse' # more details at https://docs.ruby-lang.org/en/2.1.0/OptionParser.html 'gem install OptionParser'
 require 'colorize' # 'gem install colorize'
-TextColour = :green
-AltColour = :yellow
+require 'clipboard' # for writing to clipboard
+
+# test = '<h1 class="passage-display"> <span class="passage-display-bcv">Jude</span> <span class="passage-display-version">New International Version - UK (NIVUK)</span></h1> <p><span id="en-NIVUK-30674" class="text Jude-1-1"><sup class="versenum">1 </sup>Jude, a servant of Jesus Christ and a brother of James,</span></p><p class="top-05"><span class="text Jude-1-1">To those who have been called, who are loved in God the Father and kept for<sup data-fn="#fen-NIVUK-30674a" class="footnote" data-link="[&lt;a href=&quot;#fen-NIVUK-30674a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]">[<a href="#fen-NIVUK-30674a" title="See footnote a">a</a>]</sup> Jesus Christ:</span></p> <p class="top-05"><span id="en-NIVUK-30675" class="text Jude-1-2"><sup class="versenum">2 </sup>Mercy, peace and love be yours in abundance.</span></p> <h3><span id="en-NIVUK-30676" class="text Jude-1-3">The sin and doom of ungodly people</span></h3><p><span class="text Jude-1-3"><sup class="versenum">3 </sup>Dear friends, although I was very eager to write to you about the salvation we share, I felt compelled to write and urge you to contend for the faith that was once for all entrusted to God’s holy people. </span> <span id="en-NIVUK-30677" class="text Jude-1-4"><sup class="versenum">4 </sup>For certain individuals whose condemnation was written about<sup data-fn="#fen-NIVUK-30677b" class="footnote" data-link="[&lt;a href=&quot;#fen-NIVUK-30677b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]">[<a href="#fen-NIVUK-30677b" title="See footnote b">b</a>]</sup> long ago have secretly slipped in among you. They are ungodly people, who perv'
+# puts "Found <h1>\n" if test =~ %r{<h1.*?<\/h1>\s*}
+# test.gsub!(%r{<h1.*?<\/h1>\s*}, '') # @@@
+# puts
+# puts test
+# puts
 
 # Setting variables to tweak
 TEST_FILE = 'JudeNIVUK.html'.freeze
@@ -118,17 +129,17 @@ end
 
 # Form URL string to do passage lookup
 uri = printf(BG_LOOKUP_URL, opts[:version], ref)
-puts uri if opts[:verbose]
 # by default & isn't escaped, so change that
 # NB this library is deprecated, but can't get newer alternatives (e.g. CGI and WEBrick) to work
 # uriEncoded = URI.escape(uri, ' &')
 uriEncoded = 'https://www.biblegateway.com/passage/?interface=print&version=NET&search=jn+3.1-3'
-puts uriEncoded if opts[:verbose]
 
 # Read the full page contents, but only save the very small interesting part
 begin
   # TESTING: read from local file if TEST_FILE set
   if TEST_FILE.nil?
+    puts "Calling URL <#{uriEncoded}> ...".colorize(:yellow) if opts[:verbose]
+    exit
     input_lines = Net::HTTP.get(URI.parse(uriEncoded))
     # @@@
   else
@@ -138,11 +149,13 @@ begin
     indent_spaces = ''
     in_interesting = false
     f.each_line do |line|
-      # see if we've moved into or out of the interesting part
+      # see if we've moved into the interesting part
       if line =~ /#{START_READ_CONTENT_RE}/
         in_interesting = true
+        # create 'indent_spaces' with the number of whitespace characters the first line is indented by
         line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
       end
+      # see if we've moved out of the interesting part
       in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
       next unless in_interesting
 
@@ -215,9 +228,9 @@ puts if opts[:verbose]
 puts 'Error: cannot parse passage text, so stopping.'.colorize(:red) if passage.empty?
 # Now pro cess the main passage text
 # ignore <h1> as it doesn't always appear (e.g. Jude)
-passage.gsub!(%r{<h1.*?</h1>\s*}, '') # @@@
+passage.gsub!(%r{<h1.*?<\/h1>\s*}, '') # @@@
 # ignore all <h2>book headings</h2>
-passage.gsub!(%r{<h2>.*?</h2>}, '')
+passage.gsub!(%r{<h2>.*?<\/h2>}, '')
 # replace &nbsp; elements with simpler spaces
 passage.gsub!(/&nbsp;/, ' ')
 # simplify verse/chapters numbers (or remove entirely if that option set)
@@ -278,18 +291,21 @@ end
 h = {}
 ('a'..'zz').each_with_index { |w, i| h[i + 1] = w }
 
-# Finally write out text
-puts
-puts "# #{full_ref} (#{version})"
-puts passage.to_s
-puts
+# Finally, prepare the output
+output_text = "# #{full_ref} (#{version})\n"
+output_text += "#{passage}\n\n"
 if number_footnotes.positive? && opts[:footnotes]
-  puts '### Footnotes'
+  output_text += "### Footnotes\n"
   i = 1
   footnotes.each do |ff|
-    puts "[^#{h[i]}]: #{ff}"
+    output_text += "[^#{h[i]}]: #{ff}\n"
     i += 1
   end
-  puts
+  output_text += "\n"
 end
-puts copyright.to_s if opts[:copyright]
+output_text += copyright.to_s if opts[:copyright]
+
+# Then write out text to screen
+puts
+puts output_text
+Clipboard.copy(output_text)
