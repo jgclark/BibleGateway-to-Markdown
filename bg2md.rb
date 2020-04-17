@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.0.0, 17.4.2020
+# (c) Jonathan Clark, v1.0.1, 17.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -99,25 +99,25 @@ opt_parser = OptionParser.new do |o|
     opts[:numbering] = false
   end
   opts[:filename] = ''
-  o.on('-t', '--test FILENAME', "Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.") do | f |
+  o.on('-t', '--test FILENAME', "Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.") do |f|
     opts[:filename] = f
   end
   opts[:version] = DEFAULT_VERSION
-  o.on('-v', '--version VERSION', 'Select Bible version to lookup (default:' + DEFAULT_VERSION + ')') do | v |
+  o.on('-v', '--version VERSION', 'Select Bible version to lookup (default:' + DEFAULT_VERSION + ')') do |v|
     opts[:version] = v
   end
 end
 opt_parser.parse! # parse out options, leaving file patterns to process
 
 # Get reference(s) given on command lin
-ref = ARGV[0]  # or ARGV.join(';') to return multiple passages
-if ref.nil?  # or ref.empty?
+ref = ARGV[0] # or ARGV.join(';') to return multiple passages
+if ref.nil? # or ref.empty?
   puts 'Error: no reference(s) included. Stopping.'
   exit
 end
 
 # Form URL string to do passage lookup
-uri = URI "https://www.biblegateway.com/passage/"
+uri = URI 'https://www.biblegateway.com/passage/'
 params = { interface: 'print', version: opts[:version], search: ref }
 uri.query = URI.encode_www_form params
 
@@ -250,8 +250,14 @@ passage.gsub!(/&nbsp;/, ' ')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   passage.gsub!(%r{<sup class="versenum">(.*?)\s*</sup>}, '\1 ')
-  # verse number '1' omitted if start of a new chapter, and the chapter number is given. (There's an error in the regex, thought I can't see what it is.)
-  passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
+  # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given. (There's an error in the regex, thought I can't see what it is.)
+  # I can't get this to work: passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
+  # So finding a different way instead.
+  if passage =~ %r{<span class="chapternum">.*?</span>}
+    chapternum = ''
+    passage.scan(%r{<span class="chapternum">(.*?)</span>}) { |m| chapternum = m.join.strip }
+    passage.gsub!(%r{<span class="chapternum">.*?</span>}, "#{chapternum}:1 ")
+  end
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
@@ -263,7 +269,7 @@ passage.gsub!(/<h3.*?>\s*/, "\n\n## ")
 passage.gsub!(%r{</h3>}, '')
 passage.gsub!(/<b>/, '**')
 passage.gsub!(%r{</b>}, '**')
-passage.gsub!(%r{<i>}, '_')
+passage.gsub!(/<i>/, '_')
 passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
@@ -283,6 +289,7 @@ passage.gsub!(%r{\s*</div>}, '')
 # take out all <span> and </span> elements (needs to come after chapternum spans)
 passage.gsub!(/<span .*?>/, '')
 passage.gsub!(%r{</span>}, '')
+passage = passage.strip # remove leading or trailing whitespace removed
 
 # If we want footnotes, process each footnote item, simplifying
 if number_footnotes.positive?
