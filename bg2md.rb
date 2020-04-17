@@ -21,6 +21,8 @@
 # The output also gets copied to the clipboard.
 #----------------------------------------------------------------------------------
 # TODO:
+# * [ ] Cope with Lev 19.1-4 NIV data with <div class="crossrefs hidden"><h4>Cross references:</h4> not footnotes
+# * [ ] Change <span style="font-variant: small-caps" class="small-caps">Lord</span> to be all caps
 # * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #----------------------------------------------------------------------------------
 # Ruby Strong manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
