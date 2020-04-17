@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.0.1, 17.4.2020
+# (c) Jonathan Clark, v1.1, 17.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -19,13 +19,19 @@
 # - footnotes
 # - copyright info
 # The output also gets copied to the clipboard.
+# When the 'Lord' is shown with small caps (in OT), it's output as 'LORD'.
+# When the original is shown red letter (words of Jesus), this is rendered in bold instead.
+# It ignores:
+# - all <h2> meta-chapter titles, <hr />, most <span>s
 #----------------------------------------------------------------------------------
 # TODO:
-# * [ ] Cope with Lev 19.1-4 NIV data with <div class="crossrefs hidden"><h4>Cross references:</h4> not footnotes
-# * [ ] Change <span style="font-variant: small-caps" class="small-caps">Lord</span> to be all caps
+# * [x] Check red-letter (e.g. Jn 8)
+# * [x] Sort funny extra spaces after numbering in Lev 19.1-4 NIV, Jn 8 NIV
 # * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #----------------------------------------------------------------------------------
-# Ruby Strong manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
+# Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
+# Note sometimes what appear to be spaces are probably a different UTF-8 character.
+#   Haven't quite got to the bottom of this.
 #----------------------------------------------------------------------------------
 # Key parts of HTML Page structure currently returned by BibleGateway:
 # - lots of header guff until <body ...
@@ -39,7 +45,7 @@
 #     <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
 #     <sup data-fn='...' class='footnote' ... >
 #     Pharisee<sup data-fn='#fen-NET-26112a' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]'>[<a href="#fen-NET-26112a" title="See footnote a">a</a>]</sup> named Nicodemus, who was a member of the Jewish ruling council,<sup data-fn='#fen-NET-26112b' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]'>[<a href="#fen-NET-26112b" title="See footnote b">b</a>]</sup> </span> <span id="en-NET-26113" class="text John-3-2"><sup class="versenum">2 </sup>came to Jesus<sup data-fn='#fen-NET-26113c' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113c&quot; title=&quot;See footnote c&quot;&gt;c&lt;/a&gt;]'>[<a href="#fen-NET-26113c" title="See footnote c">c</a>]</sup> at night<sup data-fn='#fen-NET-26113d' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113d&quot; title=&quot;See footnote d&quot;&gt;d&lt;/a&gt;]'>[<a href="#fen-NET-26113d" title="See footnote d">d</a>]</sup> and said to him, “Rabbi, we know that you are a teacher who has come from God. For no one could perform the miraculous signs<sup data-fn='#fen-NET-26113e' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113e&quot; title=&quot;See footnote e&quot;&gt;e&lt;/a&gt;]'>[<a href="#fen-NET-26113e" title="See footnote e">e</a>]</sup> that you do unless God is with him.” </span> <span id="en-NET-26114" class="text John-3-3"><sup class="versenum">3 </sup>Jesus replied,<sup data-fn='#fen-NET-26114f' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114f&quot; title=&quot;See footnote f&quot;&gt;f&lt;/a&gt;]'>[<a href="#fen-NET-26114f" title="See footnote f">f</a>]</sup> “I tell you the solemn truth,<sup data-fn='#fen-NET-26114g' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114g&quot; title=&quot;See footnote g&quot;&gt;g&lt;/a&gt;]'>[<a href="#fen-NET-26114g" title="See footnote g">g</a>]</sup> unless a person is born from above,<sup data-fn='#fen-NET-26114h' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114h&quot; title=&quot;See footnote h&quot;&gt;h&lt;/a&gt;]'>[<a href="#fen-NET-26114h" title="See footnote h">h</a>]</sup> he cannot see the kingdom of God.”<sup data-fn='#fen-NET-26114i' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114i&quot; title=&quot;See footnote i&quot;&gt;i&lt;/a&gt;]'>[<a href="#fen-NET-26114i" title="See footnote i">i</a>]</sup> </span> </p>
-# - <h4>Footnotes:</h4>
+# - <h4>Footnotes:</h4>  or  <div class="crossrefs hidden"><h4>Cross references:</h4>
 #   - <li id="..."><a href="#id" title="Go to John 3:1">John 3:1</a> <span class='footnote-text'>..text....</span></li>
 # - <div class="publisher-info-bottom with-single">...<a href="...">New English Translation</a> (NET)</strong> <p>NET Bible® copyright ©1996-2017 by Biblical Studies Press, L.L.C. http://netbible.com All rights reserved.</p></div></div>
 #----------------------------------------------------------------------------------
@@ -60,8 +66,11 @@ REF_RE = '<span class="passage-display-bcv">.*?<\/span>'.freeze
 MATCH_REF_RE = '<span class="passage-display-bcv">(.*?)<\/span>'.freeze
 VERSION_RE = '<span class="passage-display-version">.*?<\/span>'.freeze
 MATCH_VERSION_RE = '<span class="passage-display-version">(.*?)<\/span>'.freeze
-PASSAGE_RE = '<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">)'.freeze
-MATCH_PASSAGE_RE = '(<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">))'.freeze
+PASSAGE_RE = '<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">)'.freeze
+MATCH_PASSAGE_RE = '(<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">))'.freeze
+##<div class="crossrefs hidden"><h4>Cross references:</h4>
+CROSSREFS_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
+MATCH_CROSSREFS_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_FOOTNOTE_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
@@ -192,6 +201,7 @@ end
 puts "Found #{input_line_count} interesting lines" if opts[:verbose]
 
 # Join adjacent lines together except where it starts with a <h1 ..>, <ol>, <li ..>
+# to make parsing logic easier
 working_lines = []
 working_lines[0] = input_lines[0] # jump start this
 w = 0
@@ -247,19 +257,18 @@ puts 'Error: cannot parse passage text, so stopping.'.colorize(:red) if passage.
 passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 # ignore all <h2>book headings</h2>
 passage.gsub!(%r{<h2>.*?</h2>}, '')
+# ignore all <hr />
+passage.gsub!(%r{<hr />}, '')
 # replace &nbsp; elements with simpler spaces
 passage.gsub!(/&nbsp;/, ' ')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
-  passage.gsub!(%r{<sup class="versenum">(.*?)\s*</sup>}, '\1 ')
-  # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given. (There's an error in the regex, thought I can't see what it is.)
-  # I can't get this to work: passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
-  # So finding a different way instead.
-  if passage =~ %r{<span class="chapternum">.*?</span>}
-    chapternum = ''
-    passage.scan(%r{<span class="chapternum">(.*?)</span>}) { |m| chapternum = m.join.strip }
-    passage.gsub!(%r{<span class="chapternum">.*?</span>}, "#{chapternum}:1 ")
-  end
+  # Took ages to figure out following two regex. Turns out the space after the verse/chapter
+  # number is not a normal space character (but I'm not sure what it is). CARE when editing it,
+  # as the special character is embedded directly.
+  passage.gsub!(%r{<sup class="versenum">(.*?) *</sup>}, '\1 ')
+  # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
+  passage.gsub!(%r{<span class="chapternum">(.*?) *</span>}, '\1:1 ')
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
@@ -274,6 +283,10 @@ passage.gsub!(%r{</b>}, '**')
 passage.gsub!(/<i>/, '_')
 passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
+# Change the small caps around OT 'Lord' and make caps instead
+passage.gsub!(%r{<span style="font-variant: small-caps" class="small-caps">Lord</span>}, 'LORD')
+# Change the red text for Words of Jesus to be normal instead
+passage.gsub!(%r{<span class="woj">(.*?)</span>},'\1')
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
 if opts[:footnotes]
   passage.gsub!(/<sup data-fn=\'.*?>/, '<sup>')
