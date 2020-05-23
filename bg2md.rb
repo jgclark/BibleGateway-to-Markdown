@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.1, 17.4.2020
+# (c) Jonathan Clark, v1.1.2, 22.4.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find
 # a passage and turn into Markdown usable in other ways.
@@ -25,9 +25,12 @@
 # - all <h2> meta-chapter titles, <hr />, most <span>s
 #----------------------------------------------------------------------------------
 # TODO:
+# * [ ] Fix encoding issues with some space-like characters, and change smart quotes to dumb ones
+# * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
+# * [x] Fix NIV crossref inclusion (e.g. <sup class='crossreference'  data-link='(&lt;a href=&quot;#cen-NIV-29363A&quot; title=&quot;See cross-reference A&quot;&gt;A&lt;/a&gt;)' data-cr='#cen-NIV-29363A'></sup>)
+# * [x] Translate &amp; to &
 # * [x] Check red-letter (e.g. Jn 8)
 # * [x] Sort funny extra spaces after numbering in Lev 19.1-4 NIV, Jn 8 NIV
-# * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #----------------------------------------------------------------------------------
 # Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
 # Note sometimes what appear to be spaces are probably a different UTF-8 character.
@@ -259,16 +262,18 @@ passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 passage.gsub!(%r{<h2>.*?</h2>}, '')
 # ignore all <hr />
 passage.gsub!(%r{<hr />}, '')
-# replace &nbsp; elements with simpler spaces
+# replace &nbsp; and &amp; elements with simpler elements
 passage.gsub!(/&nbsp;/, ' ')
+passage.gsub!(/&amp;/, '&')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   # Took ages to figure out following two regex. Turns out the space after the verse/chapter
-  # number is not a normal space character (but I'm not sure what it is). CARE when editing it,
-  # as the special character is embedded directly.
-  passage.gsub!(%r{<sup class="versenum">(.*?) *</sup>}, '\1 ')
+  # number is not a normal space character (but I'm not sure what it is). 
+  # Trying to embed the character directly results in "incompatible encoding regexp match (UTF-8 regexp with ASCII-8BIT string)" error
+  # More work needed @@@
+  passage.gsub!(%r{<sup class="versenum">(.*?)</sup>}, '\1 ')
   # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-  passage.gsub!(%r{<span class="chapternum">(.*?) *</span>}, '\1:1 ')
+  passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
@@ -294,6 +299,8 @@ if opts[:footnotes]
 else
   passage.gsub!(%r{<sup data-fn.*?<\/sup>}, '')
 end
+# delete crossreferences
+passage.gsub!(%r{<sup class='crossref.*?></sup>}, '')
 # replace <a>...</a> elements with simpler [...]
 passage.gsub!(/<a .*?>/, '[')
 passage.gsub!(%r{</a>}, ']')
