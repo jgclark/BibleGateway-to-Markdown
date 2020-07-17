@@ -71,7 +71,7 @@ VERSION_RE = '<span class="passage-display-version">.*?<\/span>'.freeze
 MATCH_VERSION_RE = '<span class="passage-display-version">(.*?)<\/span>'.freeze
 PASSAGE_RE = '<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">)'.freeze
 MATCH_PASSAGE_RE = '(<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">))'.freeze
-##<div class="crossrefs hidden"><h4>Cross references:</h4>
+# #<div class="crossrefs hidden"><h4>Cross references:</h4>
 CROSSREFS_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_CROSSREFS_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
@@ -126,7 +126,7 @@ opt_parser.parse! # parse out options, leaving file patterns to process
 # Get reference(s) given on command lin
 ref = ARGV[0] # or ARGV.join(';') to return multiple passages
 if ref.nil? # or ref.empty?
-  puts 'Error: no reference(s) included. Stopping.'
+  puts opt_parser # show help
   exit
 end
 
@@ -268,7 +268,7 @@ passage.gsub!(/&amp;/, '&')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   # Took ages to figure out following two regex. Turns out the space after the verse/chapter
-  # number is not a normal space character (but I'm not sure what it is). 
+  # number is not a normal space character (but I'm not sure what it is).
   # Trying to embed the character directly results in "incompatible encoding regexp match (UTF-8 regexp with ASCII-8BIT string)" error
   # More work needed @@@
   passage.gsub!(%r{<sup class="versenum">(.*?)</sup>}, '\1 ')
@@ -291,7 +291,7 @@ passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line br
 # Change the small caps around OT 'Lord' and make caps instead
 passage.gsub!(%r{<span style="font-variant: small-caps" class="small-caps">Lord</span>}, 'LORD')
 # Change the red text for Words of Jesus to be normal instead
-passage.gsub!(%r{<span class="woj">(.*?)</span>},'\1')
+passage.gsub!(%r{<span class="woj">(.*?)</span>}, '\1')
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
 if opts[:footnotes]
   passage.gsub!(/<sup data-fn=\'.*?>/, '<sup>')
