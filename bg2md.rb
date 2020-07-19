@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.1.9, 18.7.2020
+# (c) Jonathan Clark, v1.2.0, 20.7.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -37,7 +37,8 @@
 # - <h1 class="passage-display">
 # - <div class='bcv'><div class="dropdown-display"><div class="dropdown-display-text">John 3:1-3</div></div></div> ...
 # - <div class='translation'><div class="dropdown-display"><div class="dropdown-display-text">New English Translation (NET Bible)</div></div></div></h1>
-# - bizarrely then hundreds of translation <option>s
+# - NB: or Jude has: <h1 class="passage-display"> <span class="passage-display-bcv">Jude</span> <span class="passage-display-version">New International Version - UK (NIVUK)</span></h1>
+# - hundreds of uninteresting translation <option>s
 # - <p> <span id="en-NLT-28073" class="text Rom-7-20"><sup class="versenum">20 </sup>
 # - <h3><span id="en-NET-26112" class="text John-3-1">Conversation with Nicodemus</span></h3> ...
 # - <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
@@ -55,6 +56,8 @@
 # - It seems the mid-2020 change has taken out cross references, although there is
 #   still an option for them in the BG website. So for now, removed references to
 #   <div class="crossrefs... and <h4>Cross references:</h4>
+# - You can run this in -test mode, which uses a local file as the HTML input,
+#   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
 
 # require 'uri' # for dealing with URIs
@@ -67,16 +70,16 @@ require 'clipboard' # for writing to clipboard
 DEFAULT_VERSION = 'NET'.freeze
 
 # Regular expressions used to detect various parts of the HTML to keep and use
-START_READ_CONTENT_RE = '<h1 class=\'passage-display\'>'.freeze
+START_READ_CONTENT_RE = '<h1 class=[\'"]passage-display[\'"]>'.freeze # seem to see both versions of this -- perhaps Jude is an outlier?
 END_READ_CONTENT_RE   = '^<script '.freeze
 # Match parts of lines which actually contain passage text
-PASSAGE_RE = '(<div class="passage-text">|<p|<h3).*?(<\/p>|<\/h3>)'.freeze
+PASSAGE_RE = '(<p><span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>)'.freeze
 # Match parts of lines which actually contain passage text -- this uses non-matching groups to allow both options and capture
-MATCH_PASSAGE_RE = '((?:<div class="passage-text">|<p|<h3).*?(?:<\/p>|<\/h3>))'.freeze
-REF_RE = '<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">.*?<\/div><\/div><\/div>'.freeze
-MATCH_REF_RE = '<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">(.*?)<\/div><\/div><\/div>'.freeze
-VERSION_RE = '<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">.*?<\/div><\/div><\/div>'.freeze
-MATCH_VERSION_RE = '<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">(.*?)<\/div><\/div><\/div>'.freeze
+MATCH_PASSAGE_RE = '((?:<p><span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>))'.freeze
+REF_RE = '(<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">).*?(<\/div>|<\/span>)'.freeze
+MATCH_REF_RE = '(?:<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">)(.*?)(?:<\/div>|<\/span>)'.freeze
+VERSION_RE = '(<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-version">).*?(<\/div>|<\/span>)'.freeze
+MATCH_VERSION_RE = '(?:<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-version">)(.*?)(?:<\/div>|<\/span>)'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_FOOTNOTE_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
@@ -146,7 +149,8 @@ begin
     response = Net::HTTP.get_response(uri)
     case response
     when Net::HTTPSuccess then
-      f = response.body.split(/\R/)
+      ff = response.body.force_encoding('utf-8') # otherwise returns as ASCII-8BIT ??
+      f = ff.split(/\R/) # split on newline or CR LF
       n = 0
       input_lines = []
       indent_spaces = ''
@@ -156,7 +160,7 @@ begin
         if line =~ /#{START_READ_CONTENT_RE}/
           in_interesting = true
           # create 'indent_spaces' with the number of whitespace characters the first line is indented by
-          line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
+          # line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
         end
         # see if we've moved out of the interesting part
         in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
@@ -164,7 +168,7 @@ begin
 
         # save this line, having chopped off the 'indent' amount of leading whitespace,
         # and checked it isn't empty
-        updated_line = line.delete_prefix(indent_spaces).chomp
+        updated_line = line.strip # delete_prefix(indent_spaces).chomp
         next if updated_line.empty?
 
         input_lines[n] = updated_line
@@ -181,13 +185,14 @@ begin
     input_lines = []
     indent_spaces = ''
     in_interesting = false
+    puts "Using test data from '#{opts[:filename]}>'...".colorize(:yellow) if opts[:verbose]
     f = File.open(opts[:filename], 'r', encoding: 'utf-8')
     f.each_line do |line|
       # see if we've moved into the interesting part
       if line =~ /#{START_READ_CONTENT_RE}/
         in_interesting = true
         # create 'indent_spaces' with the number of whitespace characters the first line is indented by
-        line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
+        # line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
       end
       # see if we've moved out of the interesting part
       in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
@@ -195,7 +200,7 @@ begin
 
       # save this line, having chopped off the 'indent' amount of leading whitespace,
       # and checked it isn't empty
-      updated_line = line.delete_prefix(indent_spaces).chomp
+      updated_line = line.strip # delete_prefix(indent_spaces).chomp
       next if updated_line.empty?
 
       input_lines[n] = updated_line
@@ -204,19 +209,17 @@ begin
     input_line_count = n
   end
 end
-puts "Start: Found #{input_line_count} interesting lines" if opts[:verbose]
 
 # Join adjacent lines together
-lump = ''
 lump = input_lines[0] # jump start this
 n = 1
 while n < input_line_count
   line = input_lines[n]
   n += 1
   # add line to 'lump' if it's not one of hundreds of version options
-  lump = lump + ' ' + line.lstrip if line !~ %r{<option.*</option>}
+  lump = lump + ' ' + line.strip if line !~ %r{<option.*</option>}
 end
-puts "Pass 1: 'Interesting' text size = #{lump.size} bytes." if opts[:verbose]
+puts "Pass 1: 'Interesting' text = #{input_line_count} lines, #{lump.size} bytes." if opts[:verbose]
 
 if lump.empty?
   puts 'Error: found no \'interesting\' text, so stopping.'.colorize(:red)
@@ -230,7 +233,7 @@ lump.scan(%r{(.*?(</p>|</li>|</ol>|</h1>|</h4>))}) do |m|
   break if m[0].nil?
 
   working_lines[w] = m[0].strip
-  # puts "#{w}: #{working_lines[w]}" if opts[:verbose]
+  puts (working_lines[w]).to_s if opts[:verbose]
   w += 1
 end
 working_line_count = w + 1
@@ -250,19 +253,9 @@ while n < working_line_count
   # Extract full reference
   line.scan(/#{MATCH_REF_RE}/) { |m| full_ref = m.join } if line =~ /#{REF_RE}/
   # Extract version title
-  if line =~ /#{VERSION_RE}/
-    line.scan(/#{MATCH_VERSION_RE}/) do |m|
-      version = m.join
-      # puts "  Found version: #{version}".colorize(:yellow) if opts[:verbose]
-    end
-  end
+  line.scan(/#{MATCH_VERSION_RE}/) { |m| version = m.join } if line =~ /#{VERSION_RE}/
   # Extract passage
-  if line =~ /#{PASSAGE_RE}/
-    line.scan(/#{MATCH_PASSAGE_RE}/) do |m|
-      # puts "  Found passage text: #{m.join}".colorize(:yellow) if opts[:verbose]
-      passage += m.join
-    end
-  end
+  line.scan(/#{MATCH_PASSAGE_RE}/) { |m| passage += m.join } if line =~ /#{PASSAGE_RE}/
   # Extract copyright
   line.scan(/#{MATCH_COPYRIGHT_STRING_RE}/) { |m| copyright = m.join } if line =~ /#{COPYRIGHT_STRING_RE}/
   # Extract footnote
@@ -270,7 +263,6 @@ while n < working_line_count
     line.scan(/#{MATCH_FOOTNOTE_RE}/) do |m|
       footnotes[number_footnotes] = m.join
       number_footnotes += 1
-      # puts "  Found footnote #{number_footnotes}".colorize(:yellow) if opts[:verbose]
     end
   end
   n += 1
@@ -287,8 +279,8 @@ puts if opts[:verbose]
 
 # Now process the main passage text
 # remove UNICODE U+00A0 (NBSP) characters (they are only used in BG for formatting not content)
-passage.gsub!(/\u00A0/, '')
-# replace &nbsp; and &amp; elements with simpler elements
+passage.gsub!(/\u00A0/, '') # FIXME: error as getting ASCII-8BIT string when using live data
+# replace HTML &nbsp; and &amp; elements with ASCII equivalents
 passage.gsub!(/&nbsp;/, ' ')
 passage.gsub!(/&amp;/, '&')
 # ignore <h1> as it doesn't always appear (e.g. Jude)
@@ -300,9 +292,9 @@ passage.gsub!(%r{<hr />}, '')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-  passage.gsub!(%r{<sup class="versenum">(.*?)</sup>}, '\1 ')
+  passage.gsub!(%r{<sup class="versenum">\s*(\d+)\s*</sup>}, '\1 ')
   # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-  passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
+  passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, '\1:1 ')
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
