@@ -1,13 +1,11 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.1.2, 22.4.2020
+# (c) Jonathan Clark, v1.1.9, 18.7.2020
 #----------------------------------------------------------------------------------
-# Uses BibleGateway.com's passage lookup tool to find
-# a passage and turn into Markdown usable in other ways.
-#
-# It passes 'reference' through to the BibleGateway parser to work out what range
-# of verses should be included.
+# Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
+# Markdown usable in other ways. It passes 'reference' through to the BibleGateway
+# parser to work out what range of verses should be included.
 #
 # The Markdown output includes:
 # - passage reference
@@ -18,39 +16,45 @@
 # - verse (and chapter) numbers
 # - footnotes
 # - copyright info
+#
 # The output also gets copied to the clipboard.
 # When the 'Lord' is shown with small caps (in OT), it's output as 'LORD'.
 # When the original is shown red letter (words of Jesus), this is rendered in bold instead.
-# It ignores:
+#
+# In what is returned from BibleGateway it ignores:
 # - all <h2> meta-chapter titles, <hr />, most <span>s
 #----------------------------------------------------------------------------------
-# TODO:
-# * [ ] Fix encoding issues with some space-like characters, and change smart quotes to dumb ones
-# * [ ] Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
-# * [x] Fix NIV crossref inclusion (e.g. <sup class='crossreference'  data-link='(&lt;a href=&quot;#cen-NIV-29363A&quot; title=&quot;See cross-reference A&quot;&gt;A&lt;/a&gt;)' data-cr='#cen-NIV-29363A'></sup>)
-# * [x] Translate &amp; to &
-# * [x] Check red-letter (e.g. Jn 8)
-# * [x] Sort funny extra spaces after numbering in Lev 19.1-4 NIV, Jn 8 NIV
+# TODO: Change smart quotes to dumb ones
+# TODO: Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #----------------------------------------------------------------------------------
 # Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
-# Note sometimes what appear to be spaces are probably a different UTF-8 character.
-#   Haven't quite got to the bottom of this.
 #----------------------------------------------------------------------------------
 # Key parts of HTML Page structure currently returned by BibleGateway:
 # - lots of header guff until <body ...
-# - then lots of menu, login, version and search options
+# - then lots of menu, login, and search options
 # - then more options
-# - finally nearly 1500 lines in ...
-# - <h1 class="passage-display">  (normally, but not in Jude)
-# - <span class="passage-display-bcv">John 3:1-3</span>  ...
-# - <span class="passage-display-version">New English Translation (NET Bible)</span></h1>
+# - finally 650 lines in ...
+# - <h1 class="passage-display">
+# - <div class='bcv'><div class="dropdown-display"><div class="dropdown-display-text">John 3:1-3</div></div></div> ...
+# - <div class='translation'><div class="dropdown-display"><div class="dropdown-display-text">New English Translation (NET Bible)</div></div></div></h1>
+# - bizarrely then hundreds of translation <option>s
+# - <p> <span id="en-NLT-28073" class="text Rom-7-20"><sup class="versenum">20 </sup>
 # - <h3><span id="en-NET-26112" class="text John-3-1">Conversation with Nicodemus</span></h3> ...
-#     <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
-#     <sup data-fn='...' class='footnote' ... >
-#     Pharisee<sup data-fn='#fen-NET-26112a' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]'>[<a href="#fen-NET-26112a" title="See footnote a">a</a>]</sup> named Nicodemus, who was a member of the Jewish ruling council,<sup data-fn='#fen-NET-26112b' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]'>[<a href="#fen-NET-26112b" title="See footnote b">b</a>]</sup> </span> <span id="en-NET-26113" class="text John-3-2"><sup class="versenum">2 </sup>came to Jesus<sup data-fn='#fen-NET-26113c' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113c&quot; title=&quot;See footnote c&quot;&gt;c&lt;/a&gt;]'>[<a href="#fen-NET-26113c" title="See footnote c">c</a>]</sup> at night<sup data-fn='#fen-NET-26113d' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113d&quot; title=&quot;See footnote d&quot;&gt;d&lt;/a&gt;]'>[<a href="#fen-NET-26113d" title="See footnote d">d</a>]</sup> and said to him, “Rabbi, we know that you are a teacher who has come from God. For no one could perform the miraculous signs<sup data-fn='#fen-NET-26113e' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113e&quot; title=&quot;See footnote e&quot;&gt;e&lt;/a&gt;]'>[<a href="#fen-NET-26113e" title="See footnote e">e</a>]</sup> that you do unless God is with him.” </span> <span id="en-NET-26114" class="text John-3-3"><sup class="versenum">3 </sup>Jesus replied,<sup data-fn='#fen-NET-26114f' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114f&quot; title=&quot;See footnote f&quot;&gt;f&lt;/a&gt;]'>[<a href="#fen-NET-26114f" title="See footnote f">f</a>]</sup> “I tell you the solemn truth,<sup data-fn='#fen-NET-26114g' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114g&quot; title=&quot;See footnote g&quot;&gt;g&lt;/a&gt;]'>[<a href="#fen-NET-26114g" title="See footnote g">g</a>]</sup> unless a person is born from above,<sup data-fn='#fen-NET-26114h' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114h&quot; title=&quot;See footnote h&quot;&gt;h&lt;/a&gt;]'>[<a href="#fen-NET-26114h" title="See footnote h">h</a>]</sup> he cannot see the kingdom of God.”<sup data-fn='#fen-NET-26114i' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114i&quot; title=&quot;See footnote i&quot;&gt;i&lt;/a&gt;]'>[<a href="#fen-NET-26114i" title="See footnote i">i</a>]</sup> </span> </p>
-# - <h4>Footnotes:</h4>  or  <div class="crossrefs hidden"><h4>Cross references:</h4>
-#   - <li id="..."><a href="#id" title="Go to John 3:1">John 3:1</a> <span class='footnote-text'>..text....</span></li>
-# - <div class="publisher-info-bottom with-single">...<a href="...">New English Translation</a> (NET)</strong> <p>NET Bible® copyright ©1996-2017 by Biblical Studies Press, L.L.C. http://netbible.com All rights reserved.</p></div></div>
+# - <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
+# - <sup data-fn='...' class='footnote' ... >
+#   Pharisee<sup data-fn='#fen-NET-26112a' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]'>[<a href="#fen-NET-26112a" title="See footnote a">a</a>]</sup> named Nicodemus, who was a member of the Jewish ruling council,<sup data-fn='#fen-NET-26112b' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]'>[<a href="#fen-NET-26112b" title="See footnote b">b</a>]</sup> </span> <span id="en-NET-26113" class="text John-3-2"><sup class="versenum">2 </sup>came to Jesus<sup data-fn='#fen-NET-26113c' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113c&quot; title=&quot;See footnote c&quot;&gt;c&lt;/a&gt;]'>[<a href="#fen-NET-26113c" title="See footnote c">c</a>]</sup> at night<sup data-fn='#fen-NET-26113d' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113d&quot; title=&quot;See footnote d&quot;&gt;d&lt;/a&gt;]'>[<a href="#fen-NET-26113d" title="See footnote d">d</a>]</sup> and said to him, “Rabbi, we know that you are a teacher who has come from God. For no one could perform the miraculous signs<sup data-fn='#fen-NET-26113e' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113e&quot; title=&quot;See footnote e&quot;&gt;e&lt;/a&gt;]'>[<a href="#fen-NET-26113e" title="See footnote e">e</a>]</sup> that you do unless God is with him.” </span> <span id="en-NET-26114" class="text John-3-3"><sup class="versenum">3 </sup>Jesus replied,<sup data-fn='#fen-NET-26114f' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114f&quot; title=&quot;See footnote f&quot;&gt;f&lt;/a&gt;]'>[<a href="#fen-NET-26114f" title="See footnote f">f</a>]</sup> “I tell you the solemn truth,<sup data-fn='#fen-NET-26114g' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114g&quot; title=&quot;See footnote g&quot;&gt;g&lt;/a&gt;]'>[<a href="#fen-NET-26114g" title="See footnote g">g</a>]</sup> unless a person is born from above,<sup data-fn='#fen-NET-26114h' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114h&quot; title=&quot;See footnote h&quot;&gt;h&lt;/a&gt;]'>[<a href="#fen-NET-26114h" title="See footnote h">h</a>]</sup> he cannot see the kingdom of God.”<sup data-fn='#fen-NET-26114i' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114i&quot; title=&quot;See footnote i&quot;&gt;i&lt;/a&gt;]'>[<a href="#fen-NET-26114i" title="See footnote i">i</a>]</sup> </span> </p>
+# - <h4>Footnotes</h4>
+#   <li id="..."><a href="#..." title="Go to John 3:1">John 3:1</a> <span class='footnote-text'>..text....</span></li>
+# - other uninteresting stuff
+# - <div class="publisher-info-bottom with-bga">...<a href="...">New English Translation</a> (NET)</strong> <p>NET Bible® copyright ©1996-2017 by Biblical Studies Press, L.L.C. http://netbible.com All rights reserved.</p></div></div>
+#
+# NB:
+# - The character before the verse number in <sup class="versenum">20 </sup> is
+#   actually Unicode Character U+00A0 No-Break Space (NBSP). These are converted
+#   to ordinary ASCII spaces.
+# - It seems the mid-2020 change has taken out cross references, although there is
+#   still an option for them in the BG website. So for now, removed references to
+#   <div class="crossrefs... and <h4>Cross references:</h4>
 #----------------------------------------------------------------------------------
 
 # require 'uri' # for dealing with URIs
@@ -63,17 +67,16 @@ require 'clipboard' # for writing to clipboard
 DEFAULT_VERSION = 'NET'.freeze
 
 # Regular expressions used to detect various parts of the HTML to keep and use
-START_READ_CONTENT_RE = '<div class="passage-text">'.freeze
-END_READ_CONTENT_RE   = '<\/table>$'.freeze
-REF_RE = '<span class="passage-display-bcv">.*?<\/span>'.freeze
-MATCH_REF_RE = '<span class="passage-display-bcv">(.*?)<\/span>'.freeze
-VERSION_RE = '<span class="passage-display-version">.*?<\/span>'.freeze
-MATCH_VERSION_RE = '<span class="passage-display-version">(.*?)<\/span>'.freeze
-PASSAGE_RE = '<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">)'.freeze
-MATCH_PASSAGE_RE = '(<h1 class="passage-display">.*(<\/p>\s*<\/div>|<\/p>\s*<div class="footnotes">|<div class="crossrefs hidden">))'.freeze
-# #<div class="crossrefs hidden"><h4>Cross references:</h4>
-CROSSREFS_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
-MATCH_CROSSREFS_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
+START_READ_CONTENT_RE = '<h1 class=\'passage-display\'>'.freeze
+END_READ_CONTENT_RE   = '^<script '.freeze
+# Match parts of lines which actually contain passage text
+PASSAGE_RE = '(<div class="passage-text">|<p|<h3).*?(<\/p>|<\/h3>)'.freeze
+# Match parts of lines which actually contain passage text -- this uses non-matching groups to allow both options and capture
+MATCH_PASSAGE_RE = '((?:<div class="passage-text">|<p|<h3).*?(?:<\/p>|<\/h3>))'.freeze
+REF_RE = '<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">.*?<\/div><\/div><\/div>'.freeze
+MATCH_REF_RE = '<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">(.*?)<\/div><\/div><\/div>'.freeze
+VERSION_RE = '<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">.*?<\/div><\/div><\/div>'.freeze
+MATCH_VERSION_RE = '<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">(.*?)<\/div><\/div><\/div>'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_FOOTNOTE_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
@@ -138,7 +141,7 @@ uri.query = URI.encode_www_form params
 # Read the full page contents, but only save the very small interesting part
 begin
   if opts[:filename].empty?
-    # NOT TESTING: Call BG and check response is OK
+    # If we're not running with test data: Call BG and check response is OK
     puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
     response = Net::HTTP.get_response(uri)
     case response
@@ -173,7 +176,7 @@ begin
       exit
     end
   else
-    # TESTING: read from local HTML file instead
+    # If we're running with TEST data: read from local HTML file instead
     n = 0
     input_lines = []
     indent_spaces = ''
@@ -201,27 +204,37 @@ begin
     input_line_count = n
   end
 end
-puts "Found #{input_line_count} interesting lines" if opts[:verbose]
+puts "Start: Found #{input_line_count} interesting lines" if opts[:verbose]
 
-# Join adjacent lines together except where it starts with a <h1 ..>, <ol>, <li ..>
-# to make parsing logic easier
-working_lines = []
-working_lines[0] = input_lines[0] # jump start this
-w = 0
+# Join adjacent lines together
+lump = ''
+lump = input_lines[0] # jump start this
 n = 1
 while n < input_line_count
   line = input_lines[n]
-  # puts line.colorize(TextColour) if opts[:verbose]
-  if line.lstrip =~ /(<h1|<ol|<li|<div class="publisher-info)/ # often there are modifiers before closing '>'
-    w += 1
-    working_lines[w] = line
-  else
-    working_lines[w] = working_lines[w] + ' ' + line.lstrip
-  end
   n += 1
+  # add line to 'lump' if it's not one of hundreds of version options
+  lump = lump + ' ' + line.lstrip if line !~ %r{<option.*</option>}
+end
+puts "Pass 1: 'Interesting' text size = #{lump.size} bytes." if opts[:verbose]
+
+if lump.empty?
+  puts 'Error: found no \'interesting\' text, so stopping.'.colorize(:red)
+  exit
+end
+
+# Then break apart on </h1>, </h4>, </ol>, </li>, </p> to make parsing logic easier
+working_lines = []
+w = 0
+lump.scan(%r{(.*?(</p>|</li>|</ol>|</h1>|</h4>))}) do |m|
+  break if m[0].nil?
+
+  working_lines[w] = m[0].strip
+  # puts "#{w}: #{working_lines[w]}" if opts[:verbose]
+  w += 1
 end
 working_line_count = w + 1
-puts "Now reduced to #{working_line_count} working lines:" if opts[:verbose]
+puts "Pass 2: Now has #{working_line_count} working lines." if opts[:verbose]
 
 # Now read through the saved lines, saving out the various component parts
 full_ref = ''
@@ -233,13 +246,23 @@ number_footnotes = 0 # NB: counting from 0
 n = 0 # NB: counting from 1
 while n < working_line_count
   line = working_lines[n]
-  puts line.colorize(:green) if opts[:verbose]
+  # puts(working_lines[n]).to_s.colorize(:green) if opts[:verbose]
   # Extract full reference
   line.scan(/#{MATCH_REF_RE}/) { |m| full_ref = m.join } if line =~ /#{REF_RE}/
   # Extract version title
-  line.scan(/#{MATCH_VERSION_RE}/) { |m| version = m.join } if line =~ /#{VERSION_RE}/
-  # Extract passage (should be)
-  line.scan(/#{MATCH_PASSAGE_RE}/) { |m| passage = m.join } if line =~ /#{PASSAGE_RE}/
+  if line =~ /#{VERSION_RE}/
+    line.scan(/#{MATCH_VERSION_RE}/) do |m|
+      version = m.join
+      # puts "  Found version: #{version}".colorize(:yellow) if opts[:verbose]
+    end
+  end
+  # Extract passage
+  if line =~ /#{PASSAGE_RE}/
+    line.scan(/#{MATCH_PASSAGE_RE}/) do |m|
+      # puts "  Found passage text: #{m.join}".colorize(:yellow) if opts[:verbose]
+      passage += m.join
+    end
+  end
   # Extract copyright
   line.scan(/#{MATCH_COPYRIGHT_STRING_RE}/) { |m| copyright = m.join } if line =~ /#{COPYRIGHT_STRING_RE}/
   # Extract footnote
@@ -247,6 +270,7 @@ while n < working_line_count
     line.scan(/#{MATCH_FOOTNOTE_RE}/) do |m|
       footnotes[number_footnotes] = m.join
       number_footnotes += 1
+      # puts "  Found footnote #{number_footnotes}".colorize(:yellow) if opts[:verbose]
     end
   end
   n += 1
@@ -254,23 +278,28 @@ end
 puts if opts[:verbose]
 
 # Only continue if we have found the passage
-puts 'Error: cannot parse passage text, so stopping.'.colorize(:red) if passage.empty?
+if passage.empty?
+  puts 'Error: cannot parse passage text, so stopping.'.colorize(:red)
+  exit
+end
+puts passage.colorize(:yellow) if opts[:verbose]
+puts if opts[:verbose]
+
 # Now process the main passage text
+# remove UNICODE U+00A0 (NBSP) characters (they are only used in BG for formatting not content)
+passage.gsub!(/\u00A0/, '')
+# replace &nbsp; and &amp; elements with simpler elements
+passage.gsub!(/&nbsp;/, ' ')
+passage.gsub!(/&amp;/, '&')
 # ignore <h1> as it doesn't always appear (e.g. Jude)
 passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 # ignore all <h2>book headings</h2>
 passage.gsub!(%r{<h2>.*?</h2>}, '')
 # ignore all <hr />
 passage.gsub!(%r{<hr />}, '')
-# replace &nbsp; and &amp; elements with simpler elements
-passage.gsub!(/&nbsp;/, ' ')
-passage.gsub!(/&amp;/, '&')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
-  # Took ages to figure out following two regex. Turns out the space after the verse/chapter
-  # number is not a normal space character (but I'm not sure what it is).
-  # Trying to embed the character directly results in "incompatible encoding regexp match (UTF-8 regexp with ASCII-8BIT string)" error
-  # More work needed @@@
+  # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
   passage.gsub!(%r{<sup class="versenum">(.*?)</sup>}, '\1 ')
   # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
   passage.gsub!(%r{<span class="chapternum">(.*?)\s*</span>}, '\1:1 ')
@@ -281,7 +310,12 @@ end
 # Modify various things to their markdown equivalent
 passage.gsub!(/<p.*?>/, "\n") # needs double quotes otherwise it doesn't turn this into newline
 passage.gsub!(%r{</p>}, '')
-passage.gsub!(/<h3.*?>\s*/, "\n\n## ")
+# If we have editorial headers (which come from <h3> elements) then only output if we want them
+if opts[:headers]
+  passage.gsub!(/<h3.*?>\s*/, "\n\n## ")
+else
+  passage.gsub!(/<h3.*?>\s*/, '')
+end
 passage.gsub!(%r{</h3>}, '')
 passage.gsub!(/<b>/, '**')
 passage.gsub!(%r{</b>}, '**')
@@ -299,7 +333,7 @@ if opts[:footnotes]
 else
   passage.gsub!(%r{<sup data-fn.*?<\/sup>}, '')
 end
-# delete crossreferences
+# delete crossreferences (if they still appear?)
 passage.gsub!(%r{<sup class='crossref.*?></sup>}, '')
 # replace <a>...</a> elements with simpler [...]
 passage.gsub!(/<a .*?>/, '[')
