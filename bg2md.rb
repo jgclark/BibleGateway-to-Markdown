@@ -59,6 +59,7 @@
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
+VERSION = '1.2.0'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
