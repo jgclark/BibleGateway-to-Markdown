@@ -1,11 +1,13 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.2.0, 20.7.2020
+# (c) Jonathan Clark, v1.2.1, 2.12.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
 # parser to work out what range of verses should be included.
+# The reference term is concatenated to remove spaces, meaning it doesn't need to be
+# 'quoted'. It does not yet support multiple passages.
 #
 # The Markdown output includes:
 # - passage reference
@@ -59,7 +61,7 @@
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
-VERSION = '1.2.0'.freeze
+VERSION = '1.2.1'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -130,8 +132,9 @@ opt_parser = OptionParser.new do |o|
 end
 opt_parser.parse! # parse out options, leaving file patterns to process
 
-# Get reference(s) given on command lin
-ref = ARGV[0] # or ARGV.join(';') to return multiple passages
+# Get reference given on command line
+ref = ARGV.join() # ARGV[0] 
+# TODO: allow multiple passages ... split on change from number back to book abbrev (though 1Th and 2Co??)
 if ref.nil? # or ref.empty?
   puts opt_parser # show help
   exit
