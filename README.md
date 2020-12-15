@@ -17,26 +17,34 @@ The output also gets copied to the clipboard.
 
 When the 'Lord' is shown with small caps (in OT), it is output as 'LORD'.
 
-When the original is shown red letter (words of Jesus), this is rendered in bold instead.
+When the original is shown red letter (i.e. the words of Jesus), this is rendered in bold in the Markdown output.
 
 ## Installation
-tbd
+Check you have installed the `colorize` and `optparse` gems (> `gem install colorize optparse`).
+
+Add the .rb script(s) to your path, and then set them as executable (`chmod 755 np*.rb`)
 
 ## Running the Script
+### From the command line
 Usage: `bg2md.rb [options] reference`
 
-It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included.
+It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16\` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
 
 The following options are available:
 
-- -c, --copyright    Exclude copyright notice from output
-- -e, --headers   Exclude editorial headers from output
-- -f, --footnotes    Exclude footnotes from output
-- -h, --help   Show help
-- -i, --info   Show information as I work
-- -n, --numbering   Exclude verse and chapter numbers from output
-- -t, --test FILENAME    Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.
-- -v, --version VERSION    Select Bible version to lookup using BibleGateway's abbreviations (default:NET)
+Option | Option (longer form) | Meaning
+--------- | ------------ | ---------------------------------
+-c | --copyright  |  Exclude copyright notice from output
+-e | --headers |  Exclude editorial headers from output
+-f | --footnotes  |  Exclude footnotes from output
+-h | --help  | Show help
+-i | --info |  Show information as I work
+-n | --numbering  | Exclude verse and chapter numbers from output
+-t | --test FILENAME  | Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.
+-v | --version VERSION | Select Bible version to lookup using BibleGateway's abbreviations (default:NET)
+
+### From Launchers
+e.g. Alfred -- tbd
 
 ## Important Disclaimers
 - This is not affiliated to, or approved by, BibleGateway.com
