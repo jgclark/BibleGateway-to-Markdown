@@ -11,6 +11,7 @@ The Markdown output includes:
 Optionally it also includes:
 - verse (and chapter) numbers
 - footnotes
+- cross-references
 - copyright info
 
 The output also gets copied to the clipboard.
@@ -40,6 +41,7 @@ Option | Option (longer form) | Meaning
 -h | --help  | Show help
 -i | --info |  Show information as I work
 -n | --numbering  | Exclude verse and chapter numbers from output
+-r | --crossrefs  |  Exclude cross-refs from output
 -t | --test FILENAME  | Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.
 -v | --version VERSION | Select Bible version to lookup using BibleGateway's abbreviations (default:NET)
 
@@ -50,8 +52,8 @@ e.g. Alfred -- tbd
 - This is not affiliated to, or approved by, BibleGateway.com
 - It's to be used in place of the very common usage of lookup-and-then-copy-and-paste the Bible text into a word processor
 - The web pages produced by BibleGateway.com are full of cruft: less than 5% is typically the actual Bible text.
-- The internal structure of the Bible text returned varies significantly from version to version 
-- This is only tested on a few significant English versions that I use myself
+- The internal structure of the Bible text returned varies significantly from version to version.
+- This is only tested on a few significant English versions that I use myself (NIV, NIVUK, NLT, ESV, MSG).
 - I've not done any Internationalisation of this; I don't have the experience, but I'm willing to be helped by others here.
 - The internal structure of the web pages returned from BibleGateway.com also changes from time to time. So if things look odd, it may be because there has been a periodic change which I'm not yet aware of.
 

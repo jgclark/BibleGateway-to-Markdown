@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### v1.3.0, 29.12.2020
+- [New] Add ability to parse and show cross-references (or suppress with `-r` option), as seen in NIV and ESV versions, for example.
+- [New] Handle the unusual (unique?) multi-verse numbering in the MSG version.
+
 ### v1.2.1, 2.12.2020
 - [Improve] The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted'. It does not yet support multiple passages.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.3.0, 28.12.2020
+# - Jonathan Clark, v1.3.0, 29.12.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -42,6 +42,7 @@
 # - NB: or Jude has: <h1 class="passage-display"> <span class="passage-display-bcv">Jude</span> <span class="passage-display-version">New International Version - UK (NIVUK)</span></h1>
 # - hundreds of uninteresting translation <option>s
 # - <p> <span id="en-NLT-28073" class="text Rom-7-20"><sup class="versenum">20 </sup>
+#   (or in the case of MSG: <sup class="versenum">5-8</sup>")
 # - <h3><span id="en-NET-26112" class="text John-3-1">Conversation with Nicodemus</span></h3> ...
 # - <p class="chapter-1"><span class="text John-3-1"><span class="chapternum">3 </span> ...
 # - <sup data-fn='...' class='footnote' ... >
@@ -333,7 +334,7 @@ passage.gsub!(%r{<hr />}, '')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-  passage.gsub!(%r{<sup class="versenum">\s*(\d+)\s*</sup>}, '\1 ')
+  passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
   # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
   passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, '\1:1 ')
 else
