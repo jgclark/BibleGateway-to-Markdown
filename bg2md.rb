@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# (c) Jonathan Clark, v1.2.1, 2.12.2020
+# - Jonathan Clark, v1.3.0, 28.12.2020
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -17,6 +17,7 @@
 # Optionally also:
 # - verse (and chapter) numbers
 # - footnotes
+# - cross-refs
 # - copyright info
 #
 # The output also gets copied to the clipboard.
@@ -26,7 +27,6 @@
 # In what is returned from BibleGateway it ignores:
 # - all <h2> meta-chapter titles, <hr />, most <span>s
 #----------------------------------------------------------------------------------
-# TODO: Change smart quotes to dumb ones
 # TODO: Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #----------------------------------------------------------------------------------
 # Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
@@ -53,15 +53,22 @@
 #
 # NB:
 # - The character before the verse number in <sup class="versenum">20 </sup> is
-#   actually Unicode Character U+00A0 No-Break Space (NBSP). These are converted
-#   to ordinary ASCII spaces.
-# - It seems the mid-2020 change has taken out cross references, although there is
-#   still an option for them in the BG website. So for now, removed references to
-#   <div class="crossrefs... and <h4>Cross references:</h4>
+#   actually Unicode Character U+00A0 No-Break Space (NBSP). This was a tough one
+#   to find! These are converted to ordinary ASCII spaces.
+# - At end-2020, NIV has cross-references, but NIVUK does not. The part in the passage is:
+#       <sup class='crossreference' data-cr='#cen-NIV-28102S' data-link='(&lt;a href=&quot;#cen-NIV-28102S&quot;
+#       title=&quot;See cross-reference S&quot;&gt;S&lt;/a&gt;)'>(<a href="#cen-NIV-28102S" 
+#       title="See cross-reference S">S</a>)</sup>
+#   and the later detail is:
+#       <li id="cen-NIV-28102S"><a href="#en-NIV-28102" title="Go to Romans 7:10">Romans 7:10</a> : <a
+#       class="crossref-link"
+#       href="/passage/?search=Leviticus+18%3A5%2CLuke+10%3A26-Luke+10%3A28%2CRomans+10%3A5%2CGalatians+3%3A12&version=NIV"
+#       data-bibleref="Leviticus 18:5, Luke 10:26-Luke 10:28, Romans 10:5, Galatians 3:12">Lev 18:5; Lk 10:26-28;
+#       S Ro 10:5; Gal 3:12</a></li>
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
-VERSION = '1.2.1'.freeze
+VERSION = '1.3.0'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -85,6 +92,8 @@ VERSION_RE = '(<div class=\'translation\'><div class="dropdown-display"><div cla
 MATCH_VERSION_RE = '(?:<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-version">)(.*?)(?:<\/div>|<\/span>)'.freeze
 FOOTNOTE_RE = '<span class=\'footnote-text\'>.*?<\/span>'.freeze
 MATCH_FOOTNOTE_RE = 'title=.*?>(.*?)<\/a>( )<span class=\'footnote-text\'>(.*)<\/span><\/li>'.freeze
+CROSSREF_RE = '<a class="crossref-link".*?">.*?</a></li>'.freeze
+MATCH_CROSSREF_RE = '<a class="crossref-link".*?">(.*)?</a></li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
 MATCH_COPYRIGHT_STRING_RE = '<p>(.*)<\/p>'.freeze
 
@@ -121,6 +130,10 @@ opt_parser = OptionParser.new do |o|
   o.on('-n', '--numbering', 'Exclude verse and chapter numbers') do
     opts[:numbering] = false
   end
+  opts[:crossrefs] = true
+  o.on('-r', '--crossrefs', 'Exclude cross-references') do
+    opts[:crossrefs] = false
+  end
   opts[:filename] = ''
   o.on('-t', '--test FILENAME', "Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.") do |f|
     opts[:filename] = f
@@ -134,7 +147,6 @@ opt_parser.parse! # parse out options, leaving file patterns to process
 
 # Get reference given on command line
 ref = ARGV.join() # ARGV[0] 
-# TODO: allow multiple passages ... split on change from number back to book abbrev (though 1Th and 2Co??)
 if ref.nil? # or ref.empty?
   puts opt_parser # show help
   exit
@@ -147,6 +159,7 @@ uri.query = URI.encode_www_form params
 
 # Read the full page contents, but only save the very small interesting part
 begin
+  input_line_count = 0
   if opts[:filename].empty?
     # If we're not running with test data: Call BG and check response is OK
     puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
@@ -189,7 +202,7 @@ begin
     input_lines = []
     indent_spaces = ''
     in_interesting = false
-    puts "Using test data from '#{opts[:filename]}>'...".colorize(:yellow) if opts[:verbose]
+    puts "Using test data from '#{opts[:filename]}'...".colorize(:yellow) if opts[:verbose]
     f = File.open(opts[:filename], 'r', encoding: 'utf-8')
     f.each_line do |line|
       # see if we've moved into the interesting part
@@ -212,6 +225,11 @@ begin
     end
     input_line_count = n
   end
+end
+
+if input_line_count.zero?
+  puts 'Error: found no useful lines in HTML data, so stopping.'.colorize(:red)
+  exit
 end
 
 # Join adjacent lines together
@@ -237,7 +255,7 @@ lump.scan(%r{(.*?(</p>|</li>|</ol>|</h1>|</h4>))}) do |m|
   break if m[0].nil?
 
   working_lines[w] = m[0].strip
-  puts (working_lines[w]).to_s if opts[:verbose]
+  # puts (working_lines[w]).to_s if opts[:verbose]
   w += 1
 end
 working_line_count = w + 1
@@ -250,6 +268,8 @@ passage = ''
 version = ''
 footnotes = []
 number_footnotes = 0 # NB: counting from 0
+crossrefs = []
+number_crossrefs = 0 # NB: counting from 0
 n = 0 # NB: counting from 1
 while n < working_line_count
   line = working_lines[n]
@@ -269,6 +289,13 @@ while n < working_line_count
       number_footnotes += 1
     end
   end
+  # Extract crossref
+  if line =~ /#{CROSSREF_RE}/
+    line.scan(/#{MATCH_CROSSREF_RE}/) do |m|
+      crossrefs[number_crossrefs] = m.join
+      number_crossrefs += 1
+    end
+  end
   n += 1
 end
 puts if opts[:verbose]
@@ -281,12 +308,22 @@ end
 puts passage.colorize(:yellow) if opts[:verbose]
 puts if opts[:verbose]
 
+#---------------------------------------
 # Now process the main passage text
+#---------------------------------------
 # remove UNICODE U+00A0 (NBSP) characters (they are only used in BG for formatting not content)
-passage.gsub!(/\u00A0/, '') # FIXME: error as getting ASCII-8BIT string when using live data
+passage.gsub!(/\u00A0/, '') # FIXME: ?? error as getting ASCII-8BIT string when using live data
 # replace HTML &nbsp; and &amp; elements with ASCII equivalents
 passage.gsub!(/&nbsp;/, ' ')
 passage.gsub!(/&amp;/, '&')
+# replace smart quotes with dumb ones
+passage.gsub!(/“/, '"')
+passage.gsub!(/”/, '"')
+passage.gsub!(/‘/, '\'')
+passage.gsub!(/’/, '\'')
+# replace en dash with markdwon equivalent
+passage.gsub!(/—/, '--')
+
 # ignore <h1> as it doesn't always appear (e.g. Jude)
 passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 # ignore all <h2>book headings</h2>
@@ -320,8 +357,8 @@ passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
 # Change the small caps around OT 'Lord' and make caps instead
 passage.gsub!(%r{<span style="font-variant: small-caps" class="small-caps">Lord</span>}, 'LORD')
-# Change the red text for Words of Jesus to be normal instead
-passage.gsub!(%r{<span class="woj">(.*?)</span>}, '\1')
+# Change the red text for Words of Jesus to be bold instead
+passage.gsub!(%r{<span class="woj">(.*?)</span>}, '**\1**')
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
 if opts[:footnotes]
   passage.gsub!(/<sup data-fn=\'.*?>/, '<sup>')
@@ -329,8 +366,12 @@ if opts[:footnotes]
 else
   passage.gsub!(%r{<sup data-fn.*?<\/sup>}, '')
 end
-# delete crossreferences (if they still appear?)
-passage.gsub!(%r{<sup class='crossref.*?></sup>}, '')
+# simplify cross-references (or remove if that option set).
+if opts[:crossrefs]
+  passage.gsub!(%r{<sup class='crossreference'.*?See cross-reference (\w)+.*?</sup>}, '[^\1]')
+else
+  passage.gsub!(%r{<sup class='crossreference'.*?</sup>}, '')
+end
 # replace <a>...</a> elements with simpler [...]
 passage.gsub!(/<a .*?>/, '[')
 passage.gsub!(%r{</a>}, ']')
@@ -364,10 +405,14 @@ if number_footnotes.positive?
 end
 
 # Create an alphabetical hash of numbers (Mod 26) to mimic their
-# footnote numbering scheme. Taken from
+# footnote numbering scheme (a..zz). Taken from
 # https://stackoverflow.com/questions/14632304/generate-letters-to-represent-number-using[math - Generate letters to represent number using ruby? - Stack Overflow](https://stackoverflow.com/questions/14632304/generate-letters-to-represent-number-using-ruby)
-h = {}
-('a'..'zz').each_with_index { |w, i| h[i + 1] = w }
+hf = {}
+('a'..'zz').each_with_index { |w, i| hf[i + 1] = w }
+# Create an alphabetical hash of numbers (Mod 26) to mimic their
+# cross-ref numbering scheme (A..ZZ)
+hc = {}
+('A'..'ZZ').each_with_index { |w, i| hc[i + 1] = w }
 
 # Finally, prepare the output
 output_text = "# #{full_ref} (#{version})\n"
@@ -376,7 +421,16 @@ if number_footnotes.positive? && opts[:footnotes]
   output_text += "### Footnotes\n"
   i = 1
   footnotes.each do |ff|
-    output_text += "[^#{h[i]}]: #{ff}\n"
+    output_text += "[^#{hf[i]}]: #{ff}\n"
+    i += 1
+  end
+  output_text += "\n"
+end
+if number_crossrefs.positive? && opts[:crossrefs]
+  output_text += "### Crossrefs\n"
+  i = 1
+  crossrefs.each do |cc|
+    output_text += "[^#{hc[i]}]: #{cc}\n"
     i += 1
   end
   output_text += "\n"
