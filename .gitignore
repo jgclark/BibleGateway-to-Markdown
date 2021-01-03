@@ -58,3 +58,6 @@ build-iPhoneSimulator/
 .DS_Store
 *.old
 *.html
+.solargraph.yml
+.gitattributes
+.gitignore
