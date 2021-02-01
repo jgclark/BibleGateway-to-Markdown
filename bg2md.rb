@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.3.0, 29.12.2020
+# - Jonathan Clark, v1.4.0, 1.2.2021
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -69,7 +69,7 @@
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
-VERSION = '1.3.0'.freeze
+VERSION = '1.4.0'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -107,6 +107,10 @@ opts = {}
 opt_parser = OptionParser.new do |o|
   o.banner = 'Usage: bg2md.rb [options] reference'
   o.separator ''
+  opts[:boldwords] = false
+  o.on('-b', '--boldwords', 'Make the words of Jesus in markdown bold') do
+    opts[:boldwords] = true
+  end
   opts[:copyright] = true
   o.on('-c', '--copyright', 'Exclude copyright notice') do
     opts[:copyright] = false
@@ -126,6 +130,10 @@ opt_parser = OptionParser.new do |o|
   opts[:verbose] = false
   o.on('-i', '--info', 'Show information as I work') do
     opts[:verbose] = true
+  end
+  opts[:newline] = false
+  o.on('-l', '--newline', 'Start chapters and verses on newline with H5 or H6 heading') do
+    opts[:newline] = true
   end
   opts[:numbering] = true
   o.on('-n', '--numbering', 'Exclude verse and chapter numbers') do
@@ -333,10 +341,18 @@ passage.gsub!(%r{<h2>.*?</h2>}, '')
 passage.gsub!(%r{<hr />}, '')
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
-  # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-  passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
-  # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-  passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, '\1:1 ')
+  # Now see whether to start chapters and verses as H5 or H6 
+  if opts[:newline]
+    # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
+    passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, "\n###### \\1 ")
+    # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
+    passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, "\n##### Chapter \\1\n###### 1 ")
+  else
+    # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
+    passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
+    # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
+    passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, '\1:1 ')
+  end
 else
   passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
   passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
@@ -358,8 +374,8 @@ passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
 # Change the small caps around OT 'Lord' and make caps instead
 passage.gsub!(%r{<span style="font-variant: small-caps" class="small-caps">Lord</span>}, 'LORD')
-# Change the red text for Words of Jesus to be bold instead
-passage.gsub!(%r{<span class="woj">(.*?)</span>}, '**\1**')
+# Change the red text for Words of Jesus to be bold instead (if wanted)
+passage.gsub!(%r{<span class="woj">(.*?)</span>}, '**\1**') if opts[:boldwords]
 # simplify footnotes (or remove if that option set). Complex so do in several stages.
 if opts[:footnotes]
   passage.gsub!(/<sup data-fn=\'.*?>/, '<sup>')

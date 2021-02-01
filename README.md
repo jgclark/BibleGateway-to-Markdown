@@ -18,7 +18,9 @@ The output also gets copied to the clipboard.
 
 When the 'Lord' is shown with small caps (in OT), it is output as 'LORD'.
 
-When the original is shown red letter (i.e. the words of Jesus), this is rendered in bold in the Markdown output.
+When the original is shown red letter (i.e. the words of Jesus), this can be rendered in bold in the Markdown output, with the `--boldwords` option.
+
+Chapters and verses can optionally be prefixed with markdown H5 and H6 headers respectively, using the `--newline` option.
 
 ## Installation
 Check you have installed the `colorize` and `optparse` gems (> `gem install colorize optparse`).
@@ -35,11 +37,13 @@ The following options are available:
 
 Option | Option (longer form) | Meaning
 --------- | ------------ | ---------------------------------
+-b | --boldwords  |  Make the words of Jesus in markdown bold
 -c | --copyright  |  Exclude copyright notice from output
 -e | --headers |  Exclude editorial headers from output
 -f | --footnotes  |  Exclude footnotes from output
 -h | --help  | Show help
 -i | --info |  Show information as I work
+-l | --newline | Start chapters and verses on a new line that starts with an H5 or H6 heading
 -n | --numbering  | Exclude verse and chapter numbers from output
 -r | --crossrefs  |  Exclude cross-refs from output
 -t | --test FILENAME  | Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.

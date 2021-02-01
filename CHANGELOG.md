@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### v1.4.0, 1.2.2021
+- [Change/New] Add `--boldwords` option to turn on Markdown bold for the words of Jesus. This is now off by default.
+- [New] Add `--newline` option to start chapters and verses on a new line that starts with an H5 or H6 heading
+
 ### v1.3.0, 29.12.2020
 - [New] Add ability to parse and show cross-references (or suppress with `-r` option), as seen in NIV and ESV versions, for example.
 - [New] Handle the unusual (unique?) multi-verse numbering in the MSG version.
