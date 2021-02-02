@@ -23,9 +23,9 @@ When the original is shown red letter (i.e. the words of Jesus), this can be ren
 Chapters and verses can optionally be prefixed with markdown H5 and H6 headers respectively, using the `--newline` option.
 
 ## Installation
-Check you have installed the `colorize` and `optparse` gems (> `gem install colorize optparse`).
+Check you have installed the necessary gems (`colorize`, `optparse`, and `clipboard`) -- for example run `gem install colorize` or `sudo gem install colorize` etc.).
 
-Add the .rb script(s) to your path, and then set them as executable (`chmod 755 np*.rb`)
+Add the .rb script to your path, and then set it as executable (`chmod 755 np*.rb`).
 
 ## Running the Script
 ### From the command line
