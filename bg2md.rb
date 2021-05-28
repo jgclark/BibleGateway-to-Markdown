@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.4.0, 1.2.2021
+# - Jonathan Clark, v1.4.1, 28.5.2021
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -385,7 +385,7 @@ else
 end
 # simplify cross-references (or remove if that option set).
 if opts[:crossrefs]
-  passage.gsub!(%r{<sup class='crossreference'.*?See cross-reference (\w)+.*?</sup>}, '[^\1]')
+  passage.gsub!(%r{<sup class='crossreference'.*?See cross-reference (\w+).*?</sup>}, '[^\1]')
 else
   passage.gsub!(%r{<sup class='crossreference'.*?</sup>}, '')
 end
