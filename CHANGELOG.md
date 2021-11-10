@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### v1.4.2, 5.11.2021
+- [Fix] Fix so that script will use user's selected Ruby installation, rather than the default one, which at least on macOS is very out-dated.
+
+### v1.4.1, 28.5.2021
+- [Fix] Fixed Crossref markers were being truncated to a single character after the 26th Crossref.
+
 ### v1.4.0, 1.2.2021
 - [Change/New] Add `--boldwords` option to turn on Markdown bold for the words of Jesus. This is now off by default.
 - [New] Add `--newline` option to start chapters and verses on a new line that starts with an H5 or H6 heading
