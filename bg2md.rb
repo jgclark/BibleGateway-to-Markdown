@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #----------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.4.2, 5.11.2021
+# - Jonathan Clark, v1.4.3, 12.11.2021
 #----------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -69,7 +69,7 @@
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #----------------------------------------------------------------------------------
-VERSION = '1.4.2'.freeze
+VERSION = '1.4.3'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -155,8 +155,8 @@ end
 opt_parser.parse! # parse out options, leaving file patterns to process
 
 # Get reference given on command line
-ref = ARGV.join() # ARGV[0] 
-if ref.nil? # or ref.empty?
+ref = ARGV.join # ARGV[0]
+if ref.empty?
   puts opt_parser # show help
   exit
 end
@@ -167,53 +167,20 @@ params = { interface: 'print', version: opts[:version], search: ref }
 uri.query = URI.encode_www_form params
 
 # Read the full page contents, but only save the very small interesting part
-begin
-  input_line_count = 0
-  if opts[:filename].empty?
-    # If we're not running with test data: Call BG and check response is OK
-    puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
-    response = Net::HTTP.get_response(uri)
-    case response
-    when Net::HTTPSuccess then
-      ff = response.body.force_encoding('utf-8') # otherwise returns as ASCII-8BIT ??
-      f = ff.split(/\R/) # split on newline or CR LF
-      n = 0
-      input_lines = []
-      indent_spaces = ''
-      in_interesting = false
-      f.each do |line|
-        # see if we've moved into the interesting part
-        if line =~ /#{START_READ_CONTENT_RE}/
-          in_interesting = true
-          # create 'indent_spaces' with the number of whitespace characters the first line is indented by
-          # line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
-        end
-        # see if we've moved out of the interesting part
-        in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
-        next unless in_interesting
-
-        # save this line, having chopped off the 'indent' amount of leading whitespace,
-        # and checked it isn't empty
-        updated_line = line.strip # delete_prefix(indent_spaces).chomp
-        next if updated_line.empty?
-
-        input_lines[n] = updated_line
-        n += 1
-      end
-      input_line_count = n
-    else
-      puts "--> Error: #{response.message} (#{response.code})".colorize(:red)
-      exit
-    end
-  else
-    # If we're running with TEST data: read from local HTML file instead
+input_line_count = 0
+if opts[:filename].empty?
+  # If we're not running with test data: Call BG and check response is OK
+  puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
+  response = Net::HTTP.get_response(uri)
+  case response
+  when Net::HTTPSuccess then
+    ff = response.body.force_encoding('utf-8') # otherwise returns as ASCII-8BIT ??
+    f = ff.split(/\R/) # split on newline or CR LF
     n = 0
     input_lines = []
-    indent_spaces = ''
+    # indent_spaces = ''
     in_interesting = false
-    puts "Using test data from '#{opts[:filename]}'...".colorize(:yellow) if opts[:verbose]
-    f = File.open(opts[:filename], 'r', encoding: 'utf-8')
-    f.each_line do |line|
+    f.each do |line|
       # see if we've moved into the interesting part
       if line =~ /#{START_READ_CONTENT_RE}/
         in_interesting = true
@@ -233,7 +200,38 @@ begin
       n += 1
     end
     input_line_count = n
+  else
+    puts "--> Error: #{response.message} (#{response.code})".colorize(:red)
+    exit
   end
+else
+  # If we're running with TEST data: read from local HTML file instead
+  n = 0
+  input_lines = []
+  # indent_spaces = ''
+  in_interesting = false
+  puts "Using test data from '#{opts[:filename]}'...".colorize(:yellow) if opts[:verbose]
+  f = File.open(opts[:filename], 'r', encoding: 'utf-8')
+  f.each_line do |line|
+    # see if we've moved into the interesting part
+    if line =~ /#{START_READ_CONTENT_RE}/
+      in_interesting = true
+      # create 'indent_spaces' with the number of whitespace characters the first line is indented by
+      # line.scan(/^(\s*)/) { |m| indent_spaces = m.join }
+    end
+    # see if we've moved out of the interesting part
+    in_interesting = false if line =~ /#{END_READ_CONTENT_RE}/
+    next unless in_interesting
+
+    # save this line, having chopped off the 'indent' amount of leading whitespace,
+    # and checked it isn't empty
+    updated_line = line.strip # delete_prefix(indent_spaces).chomp
+    next if updated_line.empty?
+
+    input_lines[n] = updated_line
+    n += 1
+  end
+  input_line_count = n
 end
 
 if input_line_count.zero?

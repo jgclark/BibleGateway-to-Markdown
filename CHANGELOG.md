@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### v1.4.3, 12.11.2021
+- [Change] Show help text if no reference is given at the command line.
+
 ### v1.4.2, 5.11.2021
 - [Fix] Fix so that script will use user's selected Ruby installation, rather than the default one, which at least on macOS is very out-dated.
 
