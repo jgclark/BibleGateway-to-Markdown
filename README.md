@@ -25,11 +25,13 @@ Chapters and verses can optionally be prefixed with markdown H5 and H6 headers r
 ## Installation
 Check you have installed the necessary gems (`colorize`, `optparse`, and `clipboard`) -- for example run `gem install colorize` or `sudo gem install colorize` etc.).
 
-Add the .rb script to your path, and then set it as executable (`chmod 755 np*.rb`).
+Add the .rb script to your PATH, and then set it as executable (`chmod 755 bg2md.rb`).
 
 ## Running the Script
 ### From the command line
 Usage: `bg2md.rb [options] reference`
+
+(or, depending on your ruby installation, `ruby bg2md.rb [options] reference`)
 
 It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16\` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
 
@@ -56,10 +58,9 @@ e.g. Alfred -- tbd
 - This is not affiliated to, or approved by, BibleGateway.com
 - It's to be used in place of the very common usage of lookup-and-then-copy-and-paste the Bible text into a word processor
 - The web pages produced by BibleGateway.com are full of cruft: less than 5% is typically the actual Bible text.
-- The internal structure of the Bible text returned varies significantly from version to version.
+- The internal structure of the Bible text returned varies significantly from version to version. It also changes from time to time without notice. So if things look odd, it may be because there has been a periodic change which I'm not yet aware of.
 - This is only tested on a few significant English versions that I use myself (NIV, NIVUK, NLT, ESV, MSG).
 - I've not done any Internationalisation of this; I don't have the experience, but I'm willing to be helped by others here.
-- The internal structure of the web pages returned from BibleGateway.com also changes from time to time. So if things look odd, it may be because there has been a periodic change which I'm not yet aware of.
 
 ## Issues, Requests
-If you spot problems, or have requests for improvement, please raise an issue at the [bg2md GitHub repository](https://www.github.com/jgclark/BibleGateway-to-Markdown).
+If you spot problems, or have requests for improvement, please raise an issue at the [bg2md GitHub repository](https://www.github.com/jgclark/BibleGateway-to-Markdown). Please give details on what calls you make, and what OS and version you're using, and the version of the ruby install.
