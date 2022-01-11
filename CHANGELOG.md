@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### v1.4.4, 11.1.2022
+- [Change] Add reference to this project in the help text.
+
 ### v1.4.3, 12.11.2021
 - [Change] Show help text if no reference is given at the command line.
 

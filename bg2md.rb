@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
-#----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.4.3, 12.11.2021
-#----------------------------------------------------------------------------------
+# - Jonathan Clark, v1.4.4, 11.1.2022
+#------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
 # parser to work out what range of verses should be included.
@@ -26,11 +26,11 @@
 #
 # In what is returned from BibleGateway it ignores:
 # - all <h2> meta-chapter titles, <hr />, most <span>s
-#----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # TODO: Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
-#----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
-#----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # Key parts of HTML Page structure currently returned by BibleGateway:
 # - lots of header guff until <body ...
 # - then lots of menu, login, and search options
@@ -68,8 +68,8 @@
 #       S Ro 10:5; Gal 3:12</a></li>
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
-#----------------------------------------------------------------------------------
-VERSION = '1.4.3'.freeze
+#------------------------------------------------------------------------------
+VERSION = '1.4.4'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -98,15 +98,16 @@ MATCH_CROSSREF_RE = '<a class="crossref-link".*?">(.*)?</a></li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
 MATCH_COPYRIGHT_STRING_RE = '<p>(.*)<\/p>'.freeze
 
-#=======================================================================================
+#==============================================================================
 # Main logic
-#=======================================================================================
+#==============================================================================
 
 # Setup program options
 opts = {}
 opt_parser = OptionParser.new do |o|
   o.banner = 'Usage: bg2md.rb [options] reference'
   o.separator ''
+  o.separator 'Specific options:'
   opts[:boldwords] = false
   o.on('-b', '--boldwords', 'Make the words of Jesus in markdown bold') do
     opts[:boldwords] = true
@@ -151,14 +152,18 @@ opt_parser = OptionParser.new do |o|
   o.on('-v', '--version VERSION', 'Select Bible version to lookup (default:' + DEFAULT_VERSION + ')') do |v|
     opts[:version] = v
   end
+  o.separator 'Code from https://github.com/jgclark/BibleGateway-to-Markdown/'
 end
-opt_parser.parse! # parse out options, leaving file patterns to process
+# parse out options, removing them, leaving just reference pattern(s) to process
+opt_parser.parse!
 
 # Get reference given on command line
-ref = ARGV.join # ARGV[0]
-if ref.empty?
+if ARGV.empty? || ARGV[0].empty?
+  puts "Error: you need to supply a reference.".colorize(:red)
   puts opt_parser # show help
   exit
+else
+  ref = ARGV[0]
 end
 
 # Form URL string to do passage lookup
@@ -173,7 +178,7 @@ if opts[:filename].empty?
   puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
   response = Net::HTTP.get_response(uri)
   case response
-  when Net::HTTPSuccess then
+  when Net::HTTPSuccess
     ff = response.body.force_encoding('utf-8') # otherwise returns as ASCII-8BIT ??
     f = ff.split(/\R/) # split on newline or CR LF
     n = 0
@@ -235,7 +240,7 @@ else
 end
 
 if input_line_count.zero?
-  puts 'Error: found no useful lines in HTML data, so stopping.'.colorize(:red)
+  puts 'Error: could not parse data from BibleGateway: please check your usage, and if still a problem, please raise an issue on GitHub.'.colorize(:red)
   exit
 end
 
