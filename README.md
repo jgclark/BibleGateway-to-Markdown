@@ -14,7 +14,7 @@ Optionally it also includes:
 - cross-references
 - copyright info
 
-The output also gets copied to the clipboard.
+The output is displayed in the terminal and also gets copied to the clipboard.
 
 When the 'Lord' is shown with small caps (in OT), it is output as 'LORD'.
 
@@ -29,11 +29,13 @@ Add the .rb script to your PATH, and then set it as executable (`chmod 755 bg2md
 
 ## Running the Script
 ### From the command line
-Usage: `bg2md.rb [options] reference`
+Usage: `bg2md [options] reference`
 
 (or, depending on your ruby installation, `ruby bg2md.rb [options] reference`)
 
-It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16\` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
+It passes `reference` through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
+
+The output is **displayed** in the terminal and also gets copied to the **clipboard**. 
 
 The following options are available:
 
@@ -51,8 +53,13 @@ Option | Option (longer form) | Meaning
 -t | --test FILENAME  | Pass HTML from FILENAME instead of live lookup. 'reference' must still be given, but will be ignored.
 -v | --version VERSION | Select Bible version to lookup using BibleGateway's abbreviations (default:NET)
 
+### Writing to Markdown files
+If you want to write to a markdown note in the current directory, then use ``bg2md.rb [options] reference > notename.md`. For example this is how I tend to run it:
+
+`bg2md -b -c -e -r -v NIV Jn 3.16-17 > passage.md`
+
 ### From Launchers
-e.g. Alfred -- tbd
+With a little configuration it's possible to run this from Alfred or Raycast or other launchers, through whatever mechanism they use to 'Run script' with a query argument as the Bible reference. You'll likely need to create slightly different configurations for each Bible translation that you use.
 
 ## Important Disclaimers
 - This is not affiliated to, or approved by, BibleGateway.com
@@ -62,5 +69,15 @@ e.g. Alfred -- tbd
 - This is only tested on a few significant English versions that I use myself (NIV, NIVUK, NLT, ESV, MSG).
 - I've not done any Internationalisation of this; I don't have the experience, but I'm willing to be helped by others here.
 
-## Issues, Requests
+## Supporting you
 If you spot problems, or have requests for improvement, please raise an issue at the [bg2md GitHub repository](https://www.github.com/jgclark/BibleGateway-to-Markdown). Please give details on what calls you make, and what OS and version you're using, and the version of the ruby install.
+
+## Supporting me
+If you would like to support my late-night work writing useful scripts, you can through
+
+[<img width="200px" alt="Buy Me A Coffee" src="https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg">](https://www.buymeacoffee.com/revjgc)
+
+Thanks!
+
+## History
+Please see the [CHANGELOG](CHANGELOG.md).
