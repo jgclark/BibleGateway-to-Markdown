@@ -61,3 +61,4 @@ build-iPhoneSimulator/
 .solargraph.yml
 .gitattributes
 .gitignore
+*.code-workspace

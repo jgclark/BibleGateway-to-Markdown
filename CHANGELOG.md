@@ -1,4 +1,11 @@
-# CHANGELOG
+# Bible Gateway to Markdown Script CHANGELOG
+
+### v1.4.6, 22.1.2023
+- [Fix] Cope with some odd data in verse numbers in LEB and WEB (thanks to report by @CGIII)
+- [Fix] Cope with a change to BG data for single verse lookups
+
+### v1.4.5, 17.1.2023
+- [Fix] Deal properly with italicised text in Lexham Bible (thanks to report by @CGIII)
 
 ### v1.4.4, 11.1.2022
 - [Change] Add reference to this project in the help text.

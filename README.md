@@ -1,4 +1,4 @@
-# README
+# Bible Gateway to Markdown Script
 
 This script uses [BibleGateway.com](http://BibleGateway.com/)'s wonderful passage lookup tool to find a passage and turn it into Markdown usable in other ways.
 
@@ -16,9 +16,11 @@ Optionally it also includes:
 
 The output is displayed in the terminal and also gets copied to the clipboard.
 
-When the 'Lord' is shown with small caps (in OT), it is output as 'LORD'.
+When the 'Lord' is shown with small caps in the Old Testament, it is output as 'LORD'.
 
 When the original is shown red letter (i.e. the words of Jesus), this can be rendered in bold in the Markdown output, with the `--boldwords` option.
+
+Some versions (e.g. LEB) include some words in _italics_. This is maintained in the markdown output, though where there is a reason for the italicisation available, that isn't kept. (There would be too much of it ...)
 
 Chapters and verses can optionally be prefixed with markdown H5 and H6 headers respectively, using the `--newline` option.
 
@@ -33,15 +35,15 @@ Usage: `bg2md [options] reference`
 
 (or, depending on your ruby installation, `ruby bg2md.rb [options] reference`)
 
-It passes `reference` through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
-
 The output is **displayed** in the terminal and also gets copied to the **clipboard**. 
+
+It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included. This gives lots of flexibility, for example `Jn 3.16`, `John 3:16` and `jn3:16` all return the same verse. The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted' on the command line. You can specify a verse range e.g. `Jn 3.16-17` or even across chapters, e.g. `1 Cor 12.31-13.13`. NB: This does not yet support multiple separate passages; instead just run for each passage separately.
 
 The following options are available:
 
 Option | Option (longer form) | Meaning
 --------- | ------------ | ---------------------------------
--b | --boldwords  |  Make the words of Jesus in markdown bold
+-b | --boldwords  |  Make the words of Jesus be shown in bold
 -c | --copyright  |  Exclude copyright notice from output
 -e | --headers |  Exclude editorial headers from output
 -f | --footnotes  |  Exclude footnotes from output

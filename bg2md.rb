@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.4.4, 11.1.2022
+# - Jonathan Clark, v1.4.6, 22.1.2023
 #------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -56,6 +56,9 @@
 # - The character before the verse number in <sup class="versenum">20 </sup> is
 #   actually Unicode Character U+00A0 No-Break Space (NBSP). This was a tough one
 #   to find! These are converted to ordinary ASCII spaces.
+# - LEB includes some italicised words (e.g. '<I class="trans-change">things</I>') with various class names.
+#   I am stripping the class names.
+# - LEB and WEB contain some extra classes after 'versenum' e.g. `<sup class="versenum mid-line">18</sup>`
 # - At end-2020, NIV has cross-references, but NIVUK does not. The part in the passage is:
 #       <sup class='crossreference' data-cr='#cen-NIV-28102S' data-link='(&lt;a href=&quot;#cen-NIV-28102S&quot;
 #       title=&quot;See cross-reference S&quot;&gt;S&lt;/a&gt;)'>(<a href="#cen-NIV-28102S" 
@@ -69,7 +72,7 @@
 # - You can run this in -test mode, which uses a local file as the HTML input,
 #   to avoid over-using the BibleGateway service.
 #------------------------------------------------------------------------------
-VERSION = '1.4.4'.freeze
+VERSION = '1.4.6'.freeze
 
 # require 'uri' # for dealing with URIs
 require 'net/http' # for handling URIs and requests. More details at https://ruby-doc.org/stdlib-2.7.1/libdoc/net/http/rdoc/Net/HTTP.html
@@ -84,9 +87,9 @@ DEFAULT_VERSION = 'NET'.freeze
 START_READ_CONTENT_RE = '<h1 class=[\'"]passage-display[\'"]>'.freeze # seem to see both versions of this -- perhaps Jude is an outlier?
 END_READ_CONTENT_RE   = '^<script '.freeze
 # Match parts of lines which actually contain passage text
-PASSAGE_RE = '(<p><span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>)'.freeze
+PASSAGE_RE = '(<p>\s*<span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>)'.freeze
 # Match parts of lines which actually contain passage text -- this uses non-matching groups to allow both options and capture
-MATCH_PASSAGE_RE = '((?:<p><span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>))'.freeze
+MATCH_PASSAGE_RE = '((?:<p>\s*<span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>))'.freeze
 REF_RE = '(<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">).*?(<\/div>|<\/span>)'.freeze
 MATCH_REF_RE = '(?:<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">)(.*?)(?:<\/div>|<\/span>)'.freeze
 VERSION_RE = '(<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-version">).*?(<\/div>|<\/span>)'.freeze
@@ -107,9 +110,11 @@ opts = {}
 opt_parser = OptionParser.new do |o|
   o.banner = 'Usage: bg2md.rb [options] reference'
   o.separator ''
+  o.separator '  The reference should be enclosed in quotation marks if it contains spaces.'
+  o.separator ''
   o.separator 'Specific options:'
   opts[:boldwords] = false
-  o.on('-b', '--boldwords', 'Make the words of Jesus in markdown bold') do
+  o.on('-b', '--boldwords', 'Make the words of Jesus be shown in bold') do
     opts[:boldwords] = true
   end
   opts[:copyright] = true
@@ -240,7 +245,7 @@ else
 end
 
 if input_line_count.zero?
-  puts 'Error: could not parse data from BibleGateway: please check your usage, and if still a problem, please raise an issue on GitHub.'.colorize(:red)
+  puts 'Error: the data returned from BibleGateway is empty, so stopping. Please check your usage, and if still a problem, please raise an issue on GitHub.'.colorize(:red)
   exit
 end
 
@@ -256,7 +261,7 @@ end
 puts "Pass 1: 'Interesting' text = #{input_line_count} lines, #{lump.size} bytes." if opts[:verbose]
 
 if lump.empty?
-  puts 'Error: found no \'interesting\' text, so stopping.'.colorize(:red)
+  puts 'Error: found no \'interesting\' text in BibleGateway HTML data, so stopping.'.colorize(:red)
   exit
 end
 
@@ -271,7 +276,8 @@ lump.scan(%r{(.*?(</p>|</li>|</ol>|</h1>|</h4>))}) do |m|
   w += 1
 end
 working_line_count = w + 1
-puts "Pass 2: Now has #{working_line_count} working lines." if opts[:verbose]
+puts "Pass 2: Now has #{working_line_count} working lines:" if opts[:verbose]
+puts working_lines.join('\n') if opts[:verbose]
 
 # Now read through the saved lines, saving out the various component parts
 full_ref = ''
@@ -314,11 +320,19 @@ puts if opts[:verbose]
 
 # Only continue if we have found the passage
 if passage.empty?
-  puts 'Error: cannot parse passage text, so stopping.'.colorize(:red)
+  puts 'Error: could not find useful data in the page returned from BibleGateway: please check your usage, and if still a problem, please raise an issue on GitHub.'.colorize(:red)
+  puts "- full_ref = #{full_ref}"
+  puts "- version = #{version}"
+  if !opts[:filename].nil?
+    puts "- filename = #{opts[:filename]}" 
+  else
+    puts "- uri = #{uri}"
+  end
+  puts "- number_footnotes = #{number_footnotes}"
+  puts "- number_crossrefs = #{number_crossrefs}"
   exit
 end
 puts passage.colorize(:yellow) if opts[:verbose]
-puts if opts[:verbose]
 
 #---------------------------------------
 # Now process the main passage text
@@ -347,18 +361,18 @@ if opts[:numbering]
   # Now see whether to start chapters and verses as H5 or H6 
   if opts[:newline]
     # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-    passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, "\n###### \\1 ")
+    passage.gsub!(%r{<sup class=".*?versenum.*?">\s*(\d+-?\d?)\s*</sup>}, "\n###### \\1 ")
     # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-    passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, "\n##### Chapter \\1\n###### 1 ")
+    passage.gsub!(%r{<span class=".*?chapternum.*?">\s*(\d+)\s*</span>}, "\n##### Chapter \\1\n###### 1 ")
   else
     # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-    passage.gsub!(%r{<sup class="versenum">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
+    passage.gsub!(%r{<sup class=".*?versenum.*?">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
     # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-    passage.gsub!(%r{<span class="chapternum">\s*(\d+)\s*</span>}, '\1:1 ')
+    passage.gsub!(%r{<span class=".*?chapternum.*?">\s*(\d+)\s*</span>}, '\1:1 ')
   end
 else
-  passage.gsub!(%r{<sup class="versenum">.*?</sup>}, '')
-  passage.gsub!(%r{<span class="chapternum">.*?</span>}, '')
+  passage.gsub!(%r{<sup class=".*?versenum.*?">.*?</sup>}, '')
+  passage.gsub!(%r{<span class=".*?chapternum.*?">.*?</span>}, '')
 end
 # Modify various things to their markdown equivalent
 passage.gsub!(/<p.*?>/, "\n") # needs double quotes otherwise it doesn't turn this into newline
@@ -372,6 +386,7 @@ end
 passage.gsub!(%r{</h3>}, '')
 passage.gsub!(/<b>/, '**')
 passage.gsub!(%r{</b>}, '**')
+passage.gsub!(%r{<i class=".*?">}, '_') # for LEB etc.
 passage.gsub!(/<i>/, '_')
 passage.gsub!(%r{</i>}, '_')
 passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line break but not paragraph break
