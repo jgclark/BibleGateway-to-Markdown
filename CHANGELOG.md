@@ -1,5 +1,8 @@
 # Bible Gateway to Markdown Script CHANGELOG
 
+### v1.4.7, 12.8.2023
+- [Fix] Extend request fetch timeouts for slower connections and connectivity issues
+
 ### v1.4.6, 22.1.2023
 - [Fix] Cope with some odd data in verse numbers in LEB and WEB (thanks to report by @CGIII)
 - [Fix] Cope with a change to BG data for single verse lookups

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #------------------------------------------------------------------------------
 # BibleGateway passage lookup and parser to Markdown
-# - Jonathan Clark, v1.4.6, 22.1.2023
+# - Jonathan Clark, v1.4.7, 12.8.2023
 #------------------------------------------------------------------------------
 # Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
 # Markdown usable in other ways. It passes 'reference' through to the BibleGateway
@@ -101,6 +101,10 @@ MATCH_CROSSREF_RE = '<a class="crossref-link".*?">(.*)?</a></li>'.freeze
 COPYRIGHT_STRING_RE = '<div class="publisher-info'.freeze
 MATCH_COPYRIGHT_STRING_RE = '<p>(.*)<\/p>'.freeze
 
+# Request timeout when fetching from BibleGateway
+FETCH_READ_TIMEOUT = 10 # Net::ReadTimeout (default is 5 seconds to establish a connection)
+FETCH_OPEN_TIMEOUT = 30 # Net::OpenTimeout (default is 10 seconds to wait for a response from the server)
+
 #==============================================================================
 # Main logic
 #==============================================================================
@@ -174,6 +178,7 @@ end
 # Form URL string to do passage lookup
 uri = URI 'https://www.biblegateway.com/passage/'
 params = { interface: 'print', version: opts[:version], search: ref }
+uri_opts = { use_ssl: uri.scheme == 'https', read_timeout: FETCH_READ_TIMEOUT, open_timeout: FETCH_OPEN_TIMEOUT }
 uri.query = URI.encode_www_form params
 
 # Read the full page contents, but only save the very small interesting part
@@ -181,7 +186,9 @@ input_line_count = 0
 if opts[:filename].empty?
   # If we're not running with test data: Call BG and check response is OK
   puts "Calling URL <#{uri}> ...".colorize(:yellow) if opts[:verbose]
-  response = Net::HTTP.get_response(uri)
+  response = Net::HTTP.start(uri.hostname, uri.port, uri_opts) do |http|
+    http.get(uri)
+  end
   case response
   when Net::HTTPSuccess
     ff = response.body.force_encoding('utf-8') # otherwise returns as ASCII-8BIT ??
