@@ -16,7 +16,7 @@ Optionally it also includes:
 
 The output is displayed in the terminal and also gets copied to the clipboard.
 
-When the 'Lord' is shown with small caps in the Old Testament, it is output as 'LORD'.
+When the 'Lord' is shown with small caps in the Old Testament, it is output as upper-case 'LORD'. (In English; please let me know about other languages to support.)
 
 When the original is shown red letter (i.e. the words of Jesus), this can be rendered in bold in the Markdown output, with the `--boldwords` option.
 
@@ -25,6 +25,8 @@ Some versions (e.g. LEB) include some words in _italics_. This is maintained in 
 Chapters and verses can optionally be prefixed with markdown H5 and H6 headers respectively, using the `--newline` option.
 
 ## Installation
+I assume you have a working ruby installation. (Sorry, but I cannot provide guidance or support for this step, as there are just too many variations of version and operating system. There are plenty of existing sites that can help with this.)
+
 Check you have installed the necessary gems (`colorize`, `optparse`, and `clipboard`) -- for example run `gem install colorize` or `sudo gem install colorize` etc.).
 
 Add the .rb script to your PATH, and then set it as executable (`chmod 755 bg2md.rb`).
@@ -72,7 +74,7 @@ With a little configuration it's possible to run this from Alfred or Raycast or 
 - I've not done any Internationalisation of this; I don't have the experience, but I'm willing to be helped by others here.
 
 ## Supporting you
-If you spot problems, or have requests for improvement, please raise an issue at the [bg2md GitHub repository](https://www.github.com/jgclark/BibleGateway-to-Markdown). Please give details on what calls you make, and what OS and version you're using, and the version of the ruby install.
+If you spot problems, or have requests for improvement, please raise an issue at the [bg2md GitHub repository](https://www.github.com/jgclark/BibleGateway-to-Markdown). Please give details on what calls you make, and what OS and version you're using, and the version of the ruby install. _I cannot support getting ruby working itself._
 
 ## Supporting me
 If you would like to support my late-night work writing useful scripts, you can through
