@@ -1,4 +1,10 @@
-# Bible Gateway to Markdown Script CHANGELOG
+# Bible Gateway to Markdown Script
+
+## CHANGELOG
+
+### v1.5.0, 29.1.2024
+- [Fix] Cope with BibleGateway's change to their output pages, which meant missing heading and unwanted extra text on the end of bg2md's output
+- [Fix] With some options, verses could be omitted when the range included two successive chapters
 
 ### v1.4.7, 12.8.2023
 - [Fix] Extend request fetch timeouts for slower connections and connectivity issues

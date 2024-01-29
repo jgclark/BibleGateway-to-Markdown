@@ -30,7 +30,12 @@ There is a _tremendous_ amount of guff in the file. The key parts, which I have 
     <sup data-fn='...' class='footnote' ... >
   Pharisee<sup data-fn='#fen-NET-26112a' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112a&quot; title=&quot;See footnote a&quot;&gt;a&lt;/a&gt;]'>[<a href="#fen-NET-26112a" title="See footnote a">a</a>]</sup> named Nicodemus, who was a member of the Jewish ruling council,<sup data-fn='#fen-NET-26112b' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26112b&quot; title=&quot;See footnote b&quot;&gt;b&lt;/a&gt;]'>[<a href="#fen-NET-26112b" title="See footnote b">b</a>]</sup> </span> <span id="en-NET-26113" class="text John-3-2"><sup class="versenum">2 </sup>came to Jesus<sup data-fn='#fen-NET-26113c' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113c&quot; title=&quot;See footnote c&quot;&gt;c&lt;/a&gt;]'>[<a href="#fen-NET-26113c" title="See footnote c">c</a>]</sup> at night<sup data-fn='#fen-NET-26113d' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113d&quot; title=&quot;See footnote d&quot;&gt;d&lt;/a&gt;]'>[<a href="#fen-NET-26113d" title="See footnote d">d</a>]</sup> and said to him, “Rabbi, we know that you are a teacher who has come from God. For no one could perform the miraculous signs<sup data-fn='#fen-NET-26113e' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26113e&quot; title=&quot;See footnote e&quot;&gt;e&lt;/a&gt;]'>[<a href="#fen-NET-26113e" title="See footnote e">e</a>]</sup> that you do unless God is with him.” </span> <span id="en-NET-26114" class="text John-3-3"><sup class="versenum">3 </sup>Jesus replied,<sup data-fn='#fen-NET-26114f' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114f&quot; title=&quot;See footnote f&quot;&gt;f&lt;/a&gt;]'>[<a href="#fen-NET-26114f" title="See footnote f">f</a>]</sup> “I tell you the solemn truth,<sup data-fn='#fen-NET-26114g' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114g&quot; title=&quot;See footnote g&quot;&gt;g&lt;/a&gt;]'>[<a href="#fen-NET-26114g" title="See footnote g">g</a>]</sup> unless a person is born from above,<sup data-fn='#fen-NET-26114h' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114h&quot; title=&quot;See footnote h&quot;&gt;h&lt;/a&gt;]'>[<a href="#fen-NET-26114h" title="See footnote h">h</a>]</sup> he cannot see the kingdom of God.”<sup data-fn='#fen-NET-26114i' class='footnote' data-link='[&lt;a href=&quot;#fen-NET-26114i&quot; title=&quot;See footnote i&quot;&gt;i&lt;/a&gt;]'>[<a href="#fen-NET-26114i" title="See footnote i">i</a>]</sup> </span> </p>
   ```
-- Within that, the Verse numbers are:
+- Chapters are marked as:
+    ```html
+    <span class="chapternum">4 </span>
+    ```
+    Note: verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
+- Verse numbers are marked as:
     ```html
     <span id="en-NLT-28073" class="text Rom-7-20"><sup class="versenum">20 </sup>
     ```
@@ -38,8 +43,9 @@ There is a _tremendous_ amount of guff in the file. The key parts, which I have 
     ```html
     <sup class="versenum">5-8</sup>"
     ```
-    Note: verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-- Words of Jesus (where available) are annotated:
+    Note: The extra space after the verse number is actually a Unicode NBSP character, not a standard space.
+    Note: Sometimes it seems that the character after `<sup` is also not a standard space character.
+- The words of Jesus (where available) are marked as:
     ```html
     <span class="woj">...</span>
     ```
@@ -53,6 +59,7 @@ There is a _tremendous_ amount of guff in the file. The key parts, which I have 
     ```html
     <div class="publisher-info-bottom ... <a href="...">New English Translation</a> (NET)</strong> <p>NET Bible® copyright ©1996-2017 by Biblical Studies Press, L.L.C. http://netbible.com All rights reserved.</p></div></div>
     ```
+- other stuff starts `<section class="other-resources">` (by 2024) or earlier it was `<section class="sponsors">`
 
 Other important notes:
 - The character before the verse number in `<sup class="versenum">20 </sup>` is actually Unicode Character U+00A0 No-Break Space (NBSP). This was a tough one to find! These are converted to ordinary ASCII spaces.

@@ -3,11 +3,10 @@
 # BibleGateway passage lookup and parser to Markdown
 # - Jonathan Clark, v1.5.0, 29.1.2024
 #------------------------------------------------------------------------------
-# Uses BibleGateway.com's passage lookup tool to find a passage and turn it into
-# Markdown usable in other ways. It passes 'reference' through to the BibleGateway
-# parser to work out what range of verses should be included.
-# The reference term is concatenated to remove spaces, meaning it doesn't need to be
-# 'quoted'. It does not yet support multiple passages.
+# Uses BibleGateway.com's passage lookup tool to find a passage and turn it into Markdown usable in other ways.
+# It passes 'reference' through to the BibleGateway parser to work out what range of verses should be included.
+# The reference term is concatenated to remove spaces, meaning it doesn't need to be 'quoted'.
+# It does not yet support multiple passages.
 #
 # The Markdown output includes:
 # - passage reference
@@ -30,7 +29,6 @@
 # - all <h2> meta-chapter titles, <hr />, most <span>s
 #------------------------------------------------------------------------------
 # TODO: 
-# - Allow spanning of more than one chapter
 # - Decide whether to support returning more than one passage (e.g. "Mt1.1;Jn1.1")
 #------------------------------------------------------------------------------
 # Ruby String manipulation docs: https://ruby-doc.org/core-2.7.1/String.html#method-i-replace
@@ -51,11 +49,12 @@ DEFAULT_VERSION = 'NET'.freeze
 
 # Regular expressions used to detect various parts of the HTML to keep and use
 START_READ_CONTENT_RE = '<h1 class=[\'"]passage-display[\'"]>'.freeze # seem to see both versions of this -- perhaps Jude is an outlier?
-END_READ_CONTENT_RE   = '^<script '.freeze
+END_READ_CONTENT_RE   = '<section class="other-resources">|<section class="sponsors">'.freeze
 # Match parts of lines which actually contain passage text
 PASSAGE_RE = '(<p>\s*<span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>)'.freeze
 # Match parts of lines which actually contain passage text -- this uses non-matching groups to allow both options and capture
 MATCH_PASSAGE_RE = '((?:<p>\s*<span id=|<p class=|<p>\s?<span class=|<h3).*?(?:<\/p>|<\/h3>))'.freeze
+# Match lines that give the reference and version info in a displayable form
 REF_RE = '(<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">).*?(<\/div>|<\/span>)'.freeze
 MATCH_REF_RE = '(?:<div class=\'bcv\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-bcv">)(.*?)(?:<\/div>|<\/span>)'.freeze
 VERSION_RE = '(<div class=\'translation\'><div class="dropdown-display"><div class="dropdown-display-text">|<span class="passage-display-version">).*?(<\/div>|<\/span>)'.freeze
@@ -229,6 +228,7 @@ while n < input_line_count
   line = input_lines[n]
   n += 1
   # add line to 'lump' if it's not one of hundreds of version options
+  # Note: join with space, for reasons I now don't remember
   lump = lump + ' ' + line.strip if line !~ %r{<option.*</option>}
 end
 puts "Pass 1: 'Interesting' text = #{input_line_count} lines, #{lump.size} bytes." if opts[:verbose]
@@ -289,7 +289,7 @@ while n < working_line_count
   end
   n += 1
 end
-puts if opts[:verbose]
+# puts if opts[:verbose]
 
 # Only continue if we have found the passage
 if passage.empty?
@@ -310,8 +310,8 @@ puts passage.colorize(:yellow) if opts[:verbose]
 #---------------------------------------
 # Now process the main passage text
 #---------------------------------------
-# remove UNICODE U+00A0 (NBSP) characters (they are only used in BG for formatting not content)
-passage.gsub!(/\u00A0/, '') # FIXME: ?? error as getting ASCII-8BIT string when using live data
+# remove UNICODE U+00A0 (NBSP) characters (they are only used in BG for formatting not content) -- this was hard to find!
+passage.gsub!(/\u00A0/, '')
 # replace HTML &nbsp; and &amp; elements with ASCII equivalents
 passage.gsub!(/&nbsp;/, ' ')
 passage.gsub!(/&amp;/, '&')
@@ -323,30 +323,34 @@ passage.gsub!(/’/, '\'')
 # replace en dash with markdwon equivalent
 passage.gsub!(/—/, '--')
 
+# ignore a particular string in NIV
+passage.gsub!(%r{<h3>More on the NIV</h3>}, '')
 # ignore <h1> as it doesn't always appear (e.g. Jude)
 passage.gsub!(%r{<h1.*?</h1>\s*}, '')
 # ignore all <h2>book headings</h2>
 passage.gsub!(%r{<h2>.*?</h2>}, '')
 # ignore all <hr />
 passage.gsub!(%r{<hr />}, '')
+
 # simplify verse/chapters numbers (or remove entirely if that option set)
 if opts[:numbering]
   # Now see whether to start chapters and verses as H5 or H6 
   if opts[:newline]
     # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-    passage.gsub!(%r{<sup class=".*?versenum.*?">\s*(\d+-?\d?)\s*</sup>}, "\n###### \\1 ")
+    passage.gsub!(%r{<sup\sclass="[^"]*?versenum[^"]*?">\s*?(\d+-?\d?)\s*?</sup>}, "\n###### \\1 ")
     # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-    passage.gsub!(%r{<span class=".*?chapternum.*?">\s*(\d+)\s*</span>}, "\n##### Chapter \\1\n###### 1 ")
+    passage.gsub!(%r{<span class="[^"]*?chapternum[^"]*?">\s*?(\d+)\s*?</span>}, "\n##### Chapter \\1\n###### 1 ")
   else
-    # Extract the contents of the 'versenum' class (which should just be numbers, but we're not going to be strict)
-    passage.gsub!(%r{<sup class=".*?versenum.*?">\s*(\d+-?\d?)\s*</sup>}, '\1 ')
+    # Extract the contents of the 'versenum' class (either numbers or number range (for MSG))
+    passage.gsub!(%r{<sup\sclass="[^"]*?versenum[^"]*?">\s*?(\d+-?\d?)\s*?</sup>}, "\\1 ")
     # verse number '1' seems to be omitted if start of a new chapter, and the chapter number is given.
-    passage.gsub!(%r{<span class=".*?chapternum.*?">\s*(\d+)\s*</span>}, '\1:1 ')
+    passage.gsub!(%r{<span class="[^"]*?chapternum[^"]*?">\s*?(\d+)\s*?</span>}, "\\1:1 ")
   end
 else
-  passage.gsub!(%r{<sup class=".*?versenum.*?">.*?</sup>}, '')
-  passage.gsub!(%r{<span class=".*?chapternum.*?">.*?</span>}, '')
+  passage.gsub!(%r{<sup class="[^"]*?versenum[^"]*?">.*?</sup>}, '')
+  passage.gsub!(%r{<span class="[^"]*?chapternum[^"]*?">.*?</span>}, '')
 end
+
 # Modify various things to their markdown equivalent
 passage.gsub!(/<p.*?>/, "\n") # needs double quotes otherwise it doesn't turn this into newline
 passage.gsub!(%r{</p>}, '')
@@ -367,14 +371,14 @@ passage.gsub!(%r{<br />}, "  \n") # use two trailling spaces to indicate line br
 passage.gsub!(%r{<span style="font-variant: small-caps" class="small-caps">Lord</span>}, 'LORD')
 # Change the red text for Words of Jesus to be bold instead (if wanted)
 passage.gsub!(%r{<span class="woj">(.*?)</span>}, '**\1**') if opts[:boldwords]
-# simplify footnotes (or remove if that option set). Complex so do in several stages.
+# simplify footnotes (or remove if that option set). Complex so do in several stages
 if opts[:footnotes]
   passage.gsub!(/<sup data-fn=\'.*?>/, '<sup>')
   passage.gsub!(%r{<sup>\[<a href.*?>(.*?)</a>\]</sup>}, '[^\1]')
 else
   passage.gsub!(%r{<sup data-fn.*?<\/sup>}, '')
 end
-# simplify cross-references (or remove if that option set).
+# simplify cross-references (or remove if that option set)
 if opts[:crossrefs]
   passage.gsub!(%r{<sup class='crossreference'.*?See cross-reference (\w+).*?</sup>}, '[^\1]')
 else
@@ -414,7 +418,7 @@ end
 
 # Create an alphabetical hash of numbers (Mod 26) to mimic their
 # footnote numbering scheme (a..zz). Taken from
-# https://stackoverflow.com/questions/14632304/generate-letters-to-represent-number-using[math - Generate letters to represent number using ruby? - Stack Overflow](https://stackoverflow.com/questions/14632304/generate-letters-to-represent-number-using-ruby)
+# [math - Generate letters to represent number using ruby? - Stack Overflow](https://stackoverflow.com/questions/14632304/generate-letters-to-represent-number-using-ruby)
 hf = {}
 ('a'..'zz').each_with_index { |w, i| hf[i + 1] = w }
 # Create an alphabetical hash of numbers (Mod 26) to mimic their
@@ -445,7 +449,8 @@ if number_crossrefs.positive? && opts[:crossrefs]
 end
 output_text += copyright.to_s if opts[:copyright]
 
-# Then write out text to screen
+# Then write out text
 puts
 puts output_text
+# And also copy it to clipboard
 Clipboard.copy(output_text)
