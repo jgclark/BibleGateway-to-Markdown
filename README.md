@@ -33,9 +33,9 @@ Add the .rb script to your PATH, and then set it as executable (`chmod 755 bg2md
 
 ## Running the Script
 ### From the command line
-Usage: `bg2md [options] reference`
+Usage: `ruby bg2md [options] reference`
 
-(or, depending on your ruby installation, `ruby bg2md.rb [options] reference`)
+(or, depending on your ruby installation, `bg2md.rb [options] reference`)
 
 The output is **displayed** in the terminal and also gets copied to the **clipboard**. 
 
@@ -58,9 +58,9 @@ Option | Option (longer form) | Meaning
 -v | --version VERSION | Select Bible version to lookup using BibleGateway's abbreviations (default:NET)
 
 ### Writing to Markdown files
-If you want to write to a markdown note in the current directory, then use ``bg2md.rb [options] reference > notename.md`. For example this is how I tend to run it:
+If you want to write to a markdown note in the current directory, then use `bg2md.rb [options] "reference" > notename.md`. (Here the passage _will_ need to be quoted if it contains spaces.) For example this is how I tend to run it:
 
-`bg2md -b -c -e -r -v NIV Jn 3.16-17 > passage.md`
+`bg2md -b -c -e -r -v NIV "Jn 3.16-17" > passage.md`
 
 ### From Launchers
 With a little configuration it's possible to run this from Alfred or Raycast or other launchers, through whatever mechanism they use to 'Run script' with a query argument as the Bible reference. You'll likely need to create slightly different configurations for each Bible translation that you use.
